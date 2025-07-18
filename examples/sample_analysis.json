@@ -1,0 +1,75 @@
+{
+  "search_query": "2004 Silver Eagle MS69",
+  "analysis_timestamp": "2025-07-18T14:30:00.000000",
+  "summary": {
+    "total_listings_found": 9,
+    "high_confidence_listings": 9,
+    "listings_above_threshold": 9,
+    "average_confidence": 100.0,
+    "confidence_range": "100% - 100%"
+  },
+  "pricing_analysis": {
+    "weighted_average": 48.09,
+    "median_price": 48.99,
+    "p25_price": 45.95,
+    "p75_price": 49.95,
+    "min_price": 45.0,
+    "max_price": 50.0,
+    "price_range": 5.0,
+    "total_weighted_sales": 9
+  },
+  "confidence_analysis": {
+    "search_query": "2004 Silver Eagle MS69",
+    "total_listings_analyzed": 9,
+    "listings_above_threshold": 9,
+    "high_confidence_listings": 9,
+    "average_confidence": 100.0,
+    "min_confidence": 100.0,
+    "max_confidence": 100.0,
+    "scored_listings": [
+      {
+        "itemId": "123456789",
+        "title": "2004 American Silver Eagle $1 NGC MS69-Free USA Shipping",
+        "soldPrice": "48.95",
+        "currency": "USD",
+        "confidence_analysis": {
+          "confidence_score": 100.0,
+          "reasoning": "Perfect match - correct year, coin type, and grade",
+          "key_factors": ["2004 year matches", "Silver Eagle type matches", "MS69 grade matches"],
+          "red_flags": [],
+          "match_quality": "excellent",
+          "ai_analyzed": true
+        }
+      },
+      {
+        "itemId": "123456790",
+        "title": "2004 American Silver Eagle NGC MS69 (1 Coin) - Free Shipping",
+        "soldPrice": "48.99",
+        "currency": "USD",
+        "confidence_analysis": {
+          "confidence_score": 100.0,
+          "reasoning": "Perfect match - correct year, coin type, and grade",
+          "key_factors": ["2004 year matches", "Silver Eagle type matches", "MS69 grade matches"],
+          "red_flags": [],
+          "match_quality": "excellent",
+          "ai_analyzed": true
+        }
+      }
+    ]
+  },
+  "recommendations": {
+    "data_quality": {
+      "assessment": "Excellent",
+      "reason": "Found 9 high-confidence listings"
+    },
+    "pricing_insights": {
+      "volatility": "Low",
+      "reason": "Price range is only $5.00",
+      "suggested_price": "$48.09"
+    },
+    "next_steps": [
+      "Use confidence scores to weight your pricing decisions",
+      "Monitor prices over time for trend analysis"
+    ]
+  }
+} 

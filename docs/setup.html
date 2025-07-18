@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Guide - eBay AI Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .step {
+            margin-bottom: 40px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .step h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+        }
+
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            opacity: 0.8;
+        }
+
+        .nav {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+
+        .nav a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📖 Setup Guide</h1>
+            <p>Complete setup instructions for eBay AI Analyzer</p>
+        </div>
+
+        <div class="nav">
+            <a href="index.html">🏠 Home</a>
+            <a href="setup.html">📖 Setup</a>
+            <a href="usage.html">🚀 Usage</a>
+            <a href="api.html">🔧 API</a>
+        </div>
+
+        <div class="main-content">
+            <h2>🚀 Complete Setup Guide</h2>
+            <p>Follow these steps to get your eBay AI Analyzer up and running in minutes!</p>
+
+            <div class="step">
+                <h3>Step 1: Clone the Repository</h3>
+                <p>First, clone the repository to your local machine:</p>
+                <div class="code-block">
+git clone https://github.com/Nick-Mccubbin00/EbaySearches.git
+cd EbaySearches
+                </div>
+                <div class="success">
+                    ✅ Repository cloned successfully!
+                </div>
+            </div>
+
+            <div class="step">
+                <h3>Step 2: Install Python Dependencies</h3>
+                <p>Install the required Python packages:</p>
+                <div class="code-block">
+pip install -r requirements.txt
+                </div>
+                <p>This will install:</p>
+                <ul style="margin: 15px 0; padding-left: 20px;">
+                    <li><strong>requests:</strong> For making HTTP requests to eBay API</li>
+                    <li><strong>google-generativeai:</strong> For Google Gemini AI integration</li>
+                    <li><strong>typing-extensions:</strong> For type hints support</li>
+                </ul>
+                <div class="success">
+                    ✅ Dependencies installed successfully!
+                </div>
+            </div>
+
+            <div class="step">
+                <h3>Step 3: Get Your API Keys</h3>
+                
+                <h4>🔑 eBay API Setup</h4>
+                <ol style="margin: 15px 0; padding-left: 20px;">
+                    <li>Go to <a href="https://developer.ebay.com/" target="_blank">eBay Developer Program</a></li>
+                    <li>Sign in with your eBay account</li>
+                    <li>Create a new application</li>
+                    <li>Get your OAuth access token</li>
+                    <li>Copy the token for the next step</li>
+                </ol>
+
+                <h4>🤖 Google Gemini API Setup</h4>
+                <ol style="margin: 15px 0; padding-left: 20px;">
+                    <li>Go to <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></li>
+                    <li>Sign in with your Google account</li>
+                    <li>Create a new API key</li>
+                    <li>Copy the API key for the next step</li>
+                </ol>
+
+                <div class="warning">
+                    ⚠️ <strong>Important:</strong> Keep your API keys secure and never share them publicly!
+                </div>
+            </div>
+
+            <div class="step">
+                <h3>Step 4: Configure API Keys</h3>
+                <p>Open <code>Complete_Ebay_AI_Analyzer.py</code> and update the configuration section:</p>
+                <div class="code-block">
+# eBay API Configuration
+EBAY_ACCESS_TOKEN = 'your-ebay-oauth-token-here'
+
+# Google Gemini API Configuration
+GEMINI_API_KEY = 'your-gemini-api-key-here'
+                </div>
+                <p>Replace the placeholder values with your actual API keys.</p>
+                <div class="success">
+                    ✅ API keys configured successfully!
+                </div>
+            </div>
+
+            <div class="step">
+                <h3>Step 5: Test Your Setup</h3>
+                <p>Run the analyzer to test your configuration:</p>
+                <div class="code-block">
+python Complete_Ebay_AI_Analyzer.py
+                </div>
+                <p>The script will:</p>
+                <ul style="margin: 15px 0; padding-left: 20px;">
+                    <li>Search eBay for "2004 Silver Eagle MS69"</li>
+                    <li>Apply AI confidence scoring</li>
+                    <li>Generate a comprehensive report</li>
+                    <li>Save results to JSON files</li>
+                </ul>
+                <div class="success">
+                    ✅ Setup complete! Your eBay AI Analyzer is ready to use.
+                </div>
+            </div>
+
+            <div class="step">
+                <h3>🎯 Customize Your Searches</h3>
+                <p>Edit the search queries in <code>Complete_Ebay_AI_Analyzer.py</code>:</p>
+                <div class="code-block">
+# Example searches - modify these based on your needs
+search_queries = [
+    "2004 Silver Eagle MS69",
+    "2004 American Silver Eagle 1 Oz",
+    "2004 Walking Liberty Half Dollar",
+    "2004 Mercury Dime"
+]
+                </div>
+                <p>You can search for any coin type, year, or grade combination!</p>
+            </div>
+
+            <div class="step">
+                <h3>⚙️ Configuration Options</h3>
+                <p>Customize the analysis parameters:</p>
+                <div class="code-block">
+# Analysis parameters
+max_results = 20        # Maximum listings to analyze
+min_confidence = 70     # Minimum confidence score (0-100)
+days_back = 90         # Search period in days
+                </div>
+                <ul style="margin: 15px 0; padding-left: 20px;">
+                    <li><strong>max_results:</strong> Increase for more data, decrease for faster analysis</li>
+                    <li><strong>min_confidence:</strong> Higher values = more accurate but fewer results</li>
+                    <li><strong>days_back:</strong> How far back to search for sold items</li>
+                </ul>
+            </div>
+
+            <div class="warning">
+                <h4>🚨 Troubleshooting</h4>
+                <p><strong>If you get "Invalid access token" errors:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>eBay OAuth tokens expire regularly - refresh your token</li>
+                    <li>Make sure you're using the correct token type (OAuth, not App ID)</li>
+                    <li>Check that your eBay application is properly configured</li>
+                </ul>
+                
+                <p><strong>If you get "No Gemini API key provided":</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>The system will fall back to rule-based scoring</li>
+                    <li>This still works but without AI enhancement</li>
+                    <li>Add your Gemini API key for full AI functionality</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin-top: 40px;">
+                <a href="usage.html" class="btn">🚀 Next: Usage Guide</a>
+                <a href="https://github.com/Nick-Mccubbin00/EbaySearches" class="btn">📖 View on GitHub</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Need help? Check the <a href="https://github.com/Nick-Mccubbin00/EbaySearches/issues" style="color: white;">GitHub Issues</a> page or create a new issue.</p>
+    </div>
+</body>
+</html> 
