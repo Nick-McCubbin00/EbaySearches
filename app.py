@@ -32,10 +32,17 @@ API_KEYS_CONFIGURED = False
 if not DEMO_MODE:
     try:
         from Complete_Ebay_AI_Analyzer import EBAY_ACCESS_TOKEN, GEMINI_API_KEY
-        if (EBAY_ACCESS_TOKEN and EBAY_ACCESS_TOKEN != 'your-ebay-oauth-token-here' and
-            GEMINI_API_KEY and GEMINI_API_KEY != 'your-gemini-api-key-here'):
+        # Check if keys are properly configured (not placeholder values)
+        if (EBAY_ACCESS_TOKEN and 
+            len(EBAY_ACCESS_TOKEN) > 50 and  # Real tokens are long
+            GEMINI_API_KEY and 
+            len(GEMINI_API_KEY) > 30):  # Real API keys are long
             API_KEYS_CONFIGURED = True
+            print(f"✅ API keys configured - Real analysis enabled")
+        else:
+            print(f"⚠️  API keys appear to be placeholder values - Using demo mode")
     except ImportError:
+        print(f"⚠️  Could not import API keys - Using demo mode")
         pass
 
 def generate_demo_results(search_query):
