@@ -19,7 +19,7 @@ import google.generativeai as genai
 EBAY_BROWSE_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/search"
 
 # Google Gemini API Configuration
-GEMINI_API_KEY = "AIzaSyAPIUPQ_gNZeqiLv7Q3oqPEQ98f4xU4GoY"  # Your Gemini API key
+GEMINI_API_KEY =   # Your Gemini API key
 
 # --- AI Confidence Scoring System ---
 
