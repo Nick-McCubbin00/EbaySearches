@@ -15,7 +15,7 @@ import threading
 import queue
 
 # Import our analyzer functions
-from Complete_Ebay_AI_Analyzer import complete_ebay_analysis, EBAY_ACCESS_TOKEN, GEMINI_API_KEY
+from Complete_Ebay_AI_Analyzer import complete_ebay_analysis
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes

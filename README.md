@@ -28,19 +28,14 @@ Visit the live application: [https://nick-mccubbin00.github.io/EbaySearches/](ht
 
 ```
 EbaySearches/
+├── app.py                          # Flask web server
 ├── Complete_Ebay_AI_Analyzer.py    # Main application (complete workflow)
-├── API-Ebay.py                     # eBay API integration
-├── AI_Confidence_Scorer.py         # AI confidence scoring system
 ├── requirements.txt                # Python dependencies
 ├── README.md                       # This file
 ├── docs/                           # Documentation
-│   ├── index.html                  # GitHub Pages homepage
-│   ├── setup.html                  # Setup instructions
-│   ├── usage.html                  # Usage guide
-│   └── api.html                    # API documentation
+│   └── index.html                  # Web interface
 └── examples/                       # Example outputs
-    ├── sample_analysis.json
-    └── sample_results.txt
+    └── sample_analysis.json
 ```
 
 ## 🚀 Quick Start
@@ -60,21 +55,23 @@ pip install -r requirements.txt
 
 ### 3. Configure API Keys
 
-Edit `Complete_Ebay_AI_Analyzer.py` and add your API keys:
-
-```python
-# eBay API Configuration
-EBAY_ACCESS_TOKEN = 'your-ebay-oauth-token-here'
-
-# Google Gemini API Configuration  
-GEMINI_API_KEY = 'your-gemini-api-key-here'
-```
-
-### 4. Run the Analysis
+Set environment variables for your API keys:
 
 ```bash
-python Complete_Ebay_AI_Analyzer.py
+# For local development
+export EBAY_ACCESS_TOKEN='your-ebay-oauth-token-here'
+export GEMINI_API_KEY='your-gemini-api-key-here'
+
+# For Render.com deployment, add these in the Environment Variables section
 ```
+
+### 4. Run the Web Server
+
+```bash
+python app.py
+```
+
+Then open http://localhost:5000 in your browser.
 
 ## 📊 Understanding Confidence Scores
 
