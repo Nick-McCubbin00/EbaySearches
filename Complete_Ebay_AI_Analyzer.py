@@ -32,15 +32,15 @@ class eBayConfidenceScorer:
         """Initialize the confidence scorer with Google Gemini API key."""
         if api_key:
             genai.configure(api_key=api_key)
-        elif GEMINI_API_KEY != "your-gemini-api-key-here":
+            self.use_ai = True
+            print("✅ AI confidence scoring enabled with Google Gemini")
+        elif GEMINI_API_KEY and GEMINI_API_KEY != "your-gemini-api-key-here" and GEMINI_API_KEY.strip():
             genai.configure(api_key=GEMINI_API_KEY)
+            self.use_ai = True
+            print("✅ AI confidence scoring enabled with Google Gemini")
         else:
             print("⚠️  Warning: No Gemini API key provided. Using rule-based scoring only.")
             self.use_ai = False
-            return
-            
-        self.use_ai = True
-        print("✅ AI confidence scoring enabled with Google Gemini")
     
     def score_listing_confidence(self, listing: Dict, search_query: str) -> Dict:
         """
@@ -53,13 +53,39 @@ class eBayConfidenceScorer:
         Returns:
             Dictionary with confidence score and reasoning
         """
-        title = listing.get('title', '')
-        price = listing.get('soldPrice', 'N/A')
-        
-        if self.use_ai:
-            return self._ai_score_listing(title, price, search_query)
-        else:
-            return self._rule_based_score_listing(title, price, search_query)
+        try:
+            title = listing.get('title', '')
+            price = listing.get('soldPrice', 'N/A')
+            
+            if self.use_ai:
+                result = self._ai_score_listing(title, price, search_query)
+            else:
+                result = self._rule_based_score_listing(title, price, search_query)
+            
+            # Safety check: ensure we always return a valid dictionary
+            if result is None:
+                print(f"⚠️  Warning: scoring returned None, using fallback")
+                return {
+                    'confidence_score': 50,
+                    'reasoning': 'Fallback analysis due to error',
+                    'key_factors': [],
+                    'red_flags': ['Analysis error'],
+                    'match_quality': 'unknown',
+                    'ai_analyzed': False
+                }
+            
+            return result
+            
+        except Exception as e:
+            print(f"⚠️  Error in score_listing_confidence: {e}, using fallback")
+            return {
+                'confidence_score': 50,
+                'reasoning': f'Error in analysis: {str(e)}',
+                'key_factors': [],
+                'red_flags': ['Analysis error'],
+                'match_quality': 'unknown',
+                'ai_analyzed': False
+            }
     
     def _ai_score_listing(self, title: str, price: str, search_query: str) -> Dict:
         """Use Google Gemini to score listing confidence."""
@@ -264,6 +290,12 @@ Respond in JSON format:
             print(f"  Analyzing listing {i+1}/{len(listings)}: {listing.get('title', 'N/A')[:50]}...")
             
             confidence_data = self.score_listing_confidence(listing, search_query)
+            
+            # Safety check: ensure confidence_data is not None
+            if confidence_data is None:
+                print(f"⚠️  Warning: confidence_data is None for listing {i+1}, skipping...")
+                continue
+                
             listing['confidence_analysis'] = confidence_data
             
             if confidence_data['confidence_score'] >= min_confidence:
