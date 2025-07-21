@@ -287,6 +287,11 @@ Respond in JSON format:
         high_confidence_count = 0
         
         for i, listing in enumerate(listings):
+            # Safety check: ensure listing is not None
+            if listing is None:
+                print(f"⚠️  Warning: listing {i+1} is None, skipping...")
+                continue
+                
             print(f"  Analyzing listing {i+1}/{len(listings)}: {listing.get('title', 'N/A')[:50]}...")
             
             confidence_data = self.score_listing_confidence(listing, search_query)

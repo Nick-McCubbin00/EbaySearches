@@ -54,6 +54,44 @@ def analyze_coin():
             days_back=90
         )
         
+        # Check if results is None (no listings found)
+        if results is None:
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'search_query': search_query,
+                    'summary': {
+                        'total_listings_found': 0,
+                        'high_confidence_listings': 0,
+                        'average_confidence': 0
+                    },
+                    'pricing_analysis': {
+                        'weighted_average': 0,
+                        'price_range': 0,
+                        'min_price': 0,
+                        'max_price': 0,
+                        'median_price': 0
+                    },
+                    'recommendations': {
+                        'data_quality': {
+                            'assessment': 'No data available',
+                            'reason': 'No listings found for this search query'
+                        },
+                        'pricing_insights': {
+                            'suggested_price': 'No data available',
+                            'volatility': 'Unknown',
+                            'reason': 'No listings found'
+                        },
+                        'next_steps': [
+                            'Try broadening your search terms',
+                            'Check for typos in the search query',
+                            'Try searching for a different year or grade'
+                        ]
+                    },
+                    'analysis_timestamp': datetime.now().isoformat()
+                }
+            })
+        
         # Add metadata
         results['analysis_timestamp'] = datetime.now().isoformat()
         
