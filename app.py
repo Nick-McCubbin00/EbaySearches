@@ -26,7 +26,6 @@ print(f"✅ eBay API integration active")
 print(f"✅ Google Gemini AI scoring active")
 
 
-
 @app.route('/')
 def index():
     """Serve the main page"""
