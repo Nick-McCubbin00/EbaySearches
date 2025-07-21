@@ -77,7 +77,7 @@ Analyze the listing and provide:
 3. Key factors that influenced your decision
 
 Consider:
-- Does it match the year (2004)?
+- Does it match the year specified in the search query?
 - Does it match the coin type (Silver Eagle)?
 - Does it match any specified grade (MS69, MS70, etc.)?
 - Is it the actual coin or just accessories/boxes?
@@ -99,12 +99,24 @@ Respond in JSON format:
             
             # Generate response
             response = model.generate_content(prompt)
+            
+            # Check if response is valid
+            if not response or not response.text:
+                print(f"⚠️  AI response is empty, using rule-based scoring")
+                return self._rule_based_score_listing(title, price, search_query)
+                
             ai_response = response.text.strip()
             
             # Try to extract JSON from the response
             try:
                 # Remove any markdown formatting
                 ai_response = ai_response.replace('```json', '').replace('```', '').strip()
+                
+                # Check if response is empty after cleaning
+                if not ai_response:
+                    print(f"⚠️  AI response is empty after cleaning, using rule-based scoring")
+                    return self._rule_based_score_listing(title, price, search_query)
+                    
                 result = json.loads(ai_response)
                 
                 return {
@@ -136,7 +148,11 @@ Respond in JSON format:
         red_flags = []
         
         # Extract search components
-        year_match = '2004' in title_lower and '2004' in query_lower
+        import re
+        year_match = re.search(r'\b(19|20)\d{2}\b', query_lower)
+        target_year = year_match.group() if year_match else None
+        
+        year_match = target_year in title_lower if target_year else True  # If no year specified, don't penalize
         eagle_match = any(term in title_lower for term in ['silver eagle', 'ase']) and any(term in query_lower for term in ['silver eagle', 'ase'])
         
         # Grade matching
@@ -151,12 +167,17 @@ Respond in JSON format:
                 listing_grade = grade
         
         # Scoring logic
-        if year_match:
-            score += 20
-            key_factors.append("2004 year matches")
+        if target_year:
+            if year_match:
+                score += 20
+                key_factors.append(f"{target_year} year matches")
+            else:
+                score -= 30
+                red_flags.append(f"Year mismatch: expected {target_year}")
         else:
-            score -= 30
-            red_flags.append("Year mismatch")
+            # No specific year requested, don't penalize
+            score += 5
+            key_factors.append("No specific year requested")
         
         if eagle_match:
             score += 25
@@ -352,18 +373,28 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
 
 def filter_silver_eagle_items(items, search_query):
     """
-    Filter items to only include 2004 Silver Eagles based on search query.
+    Filter items to only include Silver Eagles based on search query.
     If search query includes a grade (MS69, MS70, etc.), allows graded coins.
     Otherwise, excludes graded coins and special editions.
     """
     filtered_items = []
     search_query_lower = search_query.lower()
     
+    # Extract year from search query
+    import re
+    year_match = re.search(r'\b(19|20)\d{2}\b', search_query)
+    target_year = year_match.group() if year_match else None
+    
     # Keywords that indicate we want to KEEP the item
     keep_keywords = [
-        '2004', 'silver eagle', 'american silver eagle', 'ase', '1 oz', '1 ounce', 
+        'silver eagle', 'american silver eagle', 'ase', '1 oz', '1 ounce', 
         'troy oz', '.999', 'fine silver', 'bullion', 'uncirculated', 'bu', 'gem bu'
     ]
+    
+    # Add the target year if found
+    if target_year:
+        keep_keywords.append(target_year)
+        print(f"🔍 Search includes year '{target_year}' - filtering for this year")
     
     # Keywords that indicate we want to EXCLUDE the item (unless specifically searched for)
     exclude_keywords = [
@@ -400,8 +431,8 @@ def filter_silver_eagle_items(items, search_query):
         keep_count = sum(1 for keyword in keep_keywords if keyword in title)
         should_keep = keep_count >= 3  # Need at least 3 matching keywords
         
-        # Additional check: must contain "2004" and "silver eagle" or "ase"
-        has_year = '2004' in title
+        # Additional check: must contain the target year and "silver eagle" or "ase"
+        has_year = target_year in title if target_year else True  # If no year specified, don't filter by year
         has_eagle = any(eagle in title for eagle in ['silver eagle', 'ase'])
         
         # If searching for a specific grade, also check that the grade matches
