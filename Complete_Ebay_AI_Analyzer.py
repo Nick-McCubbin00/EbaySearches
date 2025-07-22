@@ -701,8 +701,27 @@ def display_comprehensive_results(results: Dict):
             price = listing.get('soldPrice', 'N/A')
             title = listing.get('title', 'N/A')[:50]
             quality = listing['confidence_analysis']['match_quality']
+            ebay_url = listing.get('itemWebUrl', 'N/A')
             
             print(f"  {i+1:2d}. {confidence:3.0f}% [{quality:8s}] ${price:>6} - {title}...")
+            if ebay_url != 'N/A':
+                print(f"      🔗 eBay Link: {ebay_url}")
+        
+        # Show all high confidence links
+        high_confidence_listings = [l for l in scored_listings if l['confidence_analysis']['confidence_score'] >= 80]
+        if high_confidence_listings:
+            print(f"\n🔗 HIGH CONFIDENCE EBAY LINKS ({len(high_confidence_listings)} items):")
+            for i, listing in enumerate(high_confidence_listings, 1):
+                confidence = listing['confidence_analysis']['confidence_score']
+                price = listing.get('soldPrice', 'N/A')
+                title = listing.get('title', 'N/A')[:60]
+                ebay_url = listing.get('itemWebUrl', 'N/A')
+                
+                print(f"  {i:2d}. {confidence:3.0f}% - ${price:>6} - {title}...")
+                if ebay_url != 'N/A':
+                    print(f"      {ebay_url}")
+                else:
+                    print(f"      ⚠️  No eBay URL available")
 
 def save_comprehensive_results(results: Dict, filename: str = None):
     """Save comprehensive results to JSON file."""
