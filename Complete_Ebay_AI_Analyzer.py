@@ -409,9 +409,10 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
         print(f"An unexpected error occurred: {e}")
         return []
 
-def filter_silver_eagle_items(items, search_query):
+def filter_coin_items(items, search_query):
     """
-    Filter items to only include Silver Eagles based on search query.
+    Filter items to only include relevant coins based on search query.
+    Supports Silver Eagles, Gold Eagles, and other coins.
     If search query includes a grade (MS69, MS70, etc.), allows graded coins.
     Otherwise, excludes graded coins and special editions.
     """
@@ -425,8 +426,9 @@ def filter_silver_eagle_items(items, search_query):
     
     # Keywords that indicate we want to KEEP the item
     keep_keywords = [
-        'silver eagle', 'american silver eagle', 'ase', '1 oz', '1 ounce', 
-        'troy oz', '.999', 'fine silver', 'bullion', 'uncirculated', 'bu', 'gem bu'
+        'silver eagle', 'american silver eagle', 'ase', 'gold eagle', 'american gold eagle', 'age',
+        '1 oz', '1 ounce', '1/10 oz', '1/4 oz', '1/2 oz', 'troy oz', '.999', 'fine silver', 'fine gold',
+        'bullion', 'uncirculated', 'bu', 'gem bu', 'proof', 'pr70', 'pr69', 'ms70', 'ms69'
     ]
     
     # Add the target year if found
@@ -467,11 +469,11 @@ def filter_silver_eagle_items(items, search_query):
         
         # Check if title contains enough keep keywords
         keep_count = sum(1 for keyword in keep_keywords if keyword in title)
-        should_keep = keep_count >= 3  # Need at least 3 matching keywords
+        should_keep = keep_count >= 2  # Reduced from 3 to 2 for more flexibility
         
-        # Additional check: must contain the target year and "silver eagle" or "ase"
+        # Additional check: must contain the target year and relevant coin type
         has_year = target_year in title if target_year else True  # If no year specified, don't filter by year
-        has_eagle = any(eagle in title for eagle in ['silver eagle', 'ase'])
+        has_coin_type = any(coin_type in title for coin_type in ['silver eagle', 'ase', 'gold eagle', 'age', 'eagle'])
         
         # If searching for a specific grade, also check that the grade matches
         grade_matches = True
@@ -487,7 +489,18 @@ def filter_silver_eagle_items(items, search_query):
                 # Check if the item title contains the target grade
                 grade_matches = target_grade in title
         
-        if not should_exclude and should_keep and has_year and has_eagle and grade_matches:
+        # Debug output for first few items
+        if len(filtered_items) < 3:  # Only show debug for first 3 items
+            print(f"🔍 DEBUG: '{title[:60]}...'")
+            print(f"   should_exclude: {should_exclude}")
+            print(f"   keep_count: {keep_count} (need 2)")
+            print(f"   should_keep: {should_keep}")
+            print(f"   has_year: {has_year}")
+            print(f"   has_coin_type: {has_coin_type}")
+            print(f"   grade_matches: {grade_matches}")
+            print(f"   FINAL: {'✅ KEEP' if not should_exclude and should_keep and has_year and has_coin_type and grade_matches else '❌ EXCLUDE'}")
+        
+        if not should_exclude and should_keep and has_year and has_coin_type and grade_matches:
             filtered_items.append(item)
     
     return filtered_items
@@ -743,7 +756,7 @@ def complete_ebay_analysis(search_query: str, max_results: int = 20,
     
     # Step 2: Apply basic filtering
     print(f"\n🔍 Step 2: Applying basic filtering...")
-    filtered_listings = filter_silver_eagle_items(listings, search_query)
+    filtered_listings = filter_coin_items(listings, search_query)
     print(f"✅ After filtering: {len(filtered_listings)} relevant listings")
     
     if not filtered_listings:
