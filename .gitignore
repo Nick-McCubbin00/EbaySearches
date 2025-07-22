@@ -1,66 +1,34 @@
-# Python
+# Local debug files (may contain API keys)
+local_debug.py
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
 
 # Virtual environments
 venv/
 env/
 ENV/
-env.bak/
-venv.bak/
 
-# IDE
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# OS
+# OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# API Keys and sensitive data
-*.env
-.env
-config.ini
-secrets.json
-
-# eBay data files (optional - remove if you want to include sample data)
-ebay_sold_items_*.json
-comprehensive_analysis_*.json
-complete_analysis_*.json
-
-# Logs
+# Log files
 *.log
-logs/
 
 # Temporary files
 *.tmp
-*.temp
-temp/
-tmp/ 
+*.temp 

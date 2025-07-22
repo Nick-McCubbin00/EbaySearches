@@ -20,15 +20,6 @@ EBAY_BROWSE_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/sear
 # Google Gemini API Configuration
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')  # Get from environment variable
 
-# Debug API configuration
-print(f"🔧 API Configuration Debug:")
-print(f"   EBAY_ACCESS_TOKEN: {'✅ Set' if EBAY_ACCESS_TOKEN and EBAY_ACCESS_TOKEN != 'YOUR_OAUTH_ACCESS_TOKEN' else '❌ Not set or invalid'}")
-print(f"   GEMINI_API_KEY: {'✅ Set' if GEMINI_API_KEY and GEMINI_API_KEY.strip() else '❌ Not set'}")
-if EBAY_ACCESS_TOKEN and EBAY_ACCESS_TOKEN != 'YOUR_OAUTH_ACCESS_TOKEN':
-    print(f"   EBAY_TOKEN_PREFIX: {EBAY_ACCESS_TOKEN[:10]}...")
-if GEMINI_API_KEY and GEMINI_API_KEY.strip():
-    print(f"   GEMINI_KEY_PREFIX: {GEMINI_API_KEY[:10]}...")
-
 # --- AI Confidence Scoring System ---
 
 class eBayConfidenceScorer:
@@ -352,9 +343,6 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
         list: A list of dictionaries, each representing a sold item.
               Returns an empty list if no results or an error occurs.
     """
-    print(f"🔍 DEBUG: Starting eBay API search for '{keywords}'")
-    print(f"🔍 DEBUG: EBAY_ACCESS_TOKEN status: {'✅ Valid' if EBAY_ACCESS_TOKEN and EBAY_ACCESS_TOKEN != 'YOUR_OAUTH_ACCESS_TOKEN' else '❌ Invalid'}")
-    
     if not EBAY_ACCESS_TOKEN or EBAY_ACCESS_TOKEN == 'YOUR_OAUTH_ACCESS_TOKEN':
         print("❌ ERROR: EBAY_ACCESS_TOKEN not set or invalid")
         print("   Please set EBAY_ACCESS_TOKEN environment variable on Render")
@@ -389,14 +377,10 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
             response.raise_for_status()
             
         data = response.json()
-        print(f"🔍 DEBUG: API Response status: {response.status_code}")
-        print(f"🔍 DEBUG: Response data keys: {list(data.keys()) if data else 'None'}")
-        print(f"🔍 DEBUG: itemSummaries count: {len(data.get('itemSummaries', [])) if data else 0}")
 
         sold_items = []
         # Parse the JSON response from Browse API
         if data and 'itemSummaries' in data:
-            print(f"🔍 DEBUG: Processing {len(data['itemSummaries'])} items from API")
             for item in data['itemSummaries']:
                 sold_item = {
                     'itemId': item.get('itemId', 'N/A'),
@@ -751,15 +735,8 @@ def complete_ebay_analysis(search_query: str, max_results: int = 20,
     print(f"\n📊 Step 1: Searching eBay listings...")
     listings = search_completed_sales(search_query, max_results, days_back)
     
-    print(f"🔍 DEBUG: search_completed_sales returned {len(listings) if listings else 0} listings")
-    
     if not listings:
         print("❌ No listings found. Try adjusting your search terms.")
-        print("🔍 DEBUG: This could be due to:")
-        print("   - Invalid eBay API token")
-        print("   - No search results for this query")
-        print("   - API rate limiting")
-        print("   - Network connectivity issues")
         return None
     
     print(f"✅ Found {len(listings)} listings")
