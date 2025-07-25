@@ -110,6 +110,55 @@ def analyze_coin():
             'traceback': traceback.format_exc() if app.debug else None
         }), 500
 
+@app.route('/api/analyze/batch', methods=['POST'])
+def analyze_batch():
+    """API endpoint to analyze multiple coin queries in batch"""
+    try:
+        data = request.get_json()
+        search_queries_text = data.get('search_queries', '').strip()
+        
+        if not search_queries_text:
+            return jsonify({
+                'error': 'Search queries are required (comma-separated)',
+                'status': 'error'
+            }), 400
+        
+        # Parse comma-separated queries
+        from Complete_Ebay_AI_Analyzer import parse_search_queries, batch_ebay_analysis
+        
+        search_queries = parse_search_queries(search_queries_text)
+        
+        if not search_queries:
+            return jsonify({
+                'error': 'No valid search queries found',
+                'status': 'error'
+            }), 400
+        
+        print(f"🚀 Starting batch analysis of {len(search_queries)} queries...")
+        
+        # Run batch analysis
+        batch_results = batch_ebay_analysis(
+            search_queries=search_queries,
+            max_results=20,
+            min_confidence=70,
+            days_back=90
+        )
+        
+        print(f"✅ Batch analysis complete: {batch_results['successful_queries']}/{batch_results['total_queries']} successful")
+        
+        return jsonify({
+            'status': 'success',
+            'data': batch_results
+        })
+            
+    except Exception as e:
+        print(f"❌ Batch analysis failed: {e}")
+        return jsonify({
+            'error': f'Batch analysis failed: {str(e)}',
+            'status': 'error',
+            'traceback': traceback.format_exc() if app.debug else None
+        }), 500
+
 @app.route('/api/status')
 def api_status():
     """Check API status and configuration"""

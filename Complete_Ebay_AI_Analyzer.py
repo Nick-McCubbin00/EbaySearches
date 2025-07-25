@@ -2,6 +2,7 @@
 """
 Complete eBay AI Analyzer
 Combines eBay API search with Gemini AI confidence scoring in one comprehensive workflow
+Optimized for batch processing and performance
 """
 
 import requests
@@ -11,6 +12,10 @@ import time
 from typing import List, Dict
 from datetime import datetime, timedelta
 import google.generativeai as genai
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+from functools import lru_cache
+import re
 
 # --- Configuration ---
 # eBay API Configuration
@@ -19,6 +24,14 @@ EBAY_BROWSE_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/sear
 
 # Google Gemini API Configuration
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')  # Get from environment variable
+
+# Performance Configuration
+MAX_CONCURRENT_REQUESTS = 5  # Limit concurrent API calls
+AI_BATCH_SIZE = 10  # Process AI scoring in batches
+CACHE_TTL = 300  # Cache results for 5 minutes
+
+# Thread-local storage for API rate limiting
+thread_local = threading.local()
 
 # --- AI Confidence Scoring System ---
 
@@ -53,44 +66,17 @@ class eBayConfidenceScorer:
         Returns:
             Dictionary with confidence score and reasoning
         """
-        try:
-            title = listing.get('title', '')
-            price = listing.get('soldPrice', 'N/A')
-            
-            if self.use_ai:
-                result = self._ai_score_listing(title, price, search_query)
-            else:
-                result = self._rule_based_score_listing(title, price, search_query)
-            
-            # Safety check: ensure we always return a valid dictionary
-            if result is None:
-                print(f"⚠️  Warning: scoring returned None, using fallback")
-                return {
-                    'confidence_score': 50,
-                    'reasoning': 'Fallback analysis due to error',
-                    'key_factors': [],
-                    'red_flags': ['Analysis error'],
-                    'match_quality': 'unknown',
-                    'ai_analyzed': False
-                }
-            
-            return result
-            
-        except Exception as e:
-            print(f"⚠️  Error in score_listing_confidence: {e}, using fallback")
-            return {
-                'confidence_score': 50,
-                'reasoning': f'Error in analysis: {str(e)}',
-                'key_factors': [],
-                'red_flags': ['Analysis error'],
-                'match_quality': 'unknown',
-                'ai_analyzed': False
-            }
+        title = listing.get('title', '')
+        price = listing.get('soldPrice', 'N/A')
+        
+        if not self.use_ai:
+            raise Exception("AI scoring is required but not available")
+        
+        return self._ai_score_listing(title, price, search_query)
     
     def _ai_score_listing(self, title: str, price: str, search_query: str) -> Dict:
         """Use Google Gemini to score listing confidence."""
-        try:
-            prompt = f"""
+        prompt = f"""
 You are an expert coin collector and eBay listing analyzer. Your task is to determine how well an eBay listing matches a search query.
 
 SEARCH QUERY: "{search_query}"
@@ -104,8 +90,8 @@ Analyze the listing and provide:
 
 Consider:
 - Does it match the year specified in the search query?
-- Does it match the coin type (Silver Eagle)?
-- Does it match any specified grade (MS69, MS70, etc.)?
+- Does it match the coin type (Silver Eagle, Gold Eagle, etc.)?
+- Does it match any specified grade (MS69, MS70, PR70, etc.)?
 - Is it the actual coin or just accessories/boxes?
 - Is it the right condition/type?
 - Are there any red flags (wrong coin, damaged, etc.)?
@@ -119,157 +105,45 @@ Respond in JSON format:
     "match_quality": "excellent"
 }}
 """
-
-            # Initialize Gemini model
-            model = genai.GenerativeModel('gemini-2.5-pro')
-            
-            # Generate response
-            response = model.generate_content(prompt)
-            
-            # Check if response is valid
-            if not response or not response.text:
-                print(f"⚠️  AI response is empty, using rule-based scoring")
-                return self._rule_based_score_listing(title, price, search_query)
-                
-            ai_response = response.text.strip()
-            
-            # Try to extract JSON from the response
-            try:
-                # Remove any markdown formatting
-                ai_response = ai_response.replace('```json', '').replace('```', '').strip()
-                
-                # Check if response is empty after cleaning
-                if not ai_response:
-                    print(f"⚠️  AI response is empty after cleaning, using rule-based scoring")
-                    return self._rule_based_score_listing(title, price, search_query)
-                    
-                result = json.loads(ai_response)
-                
-                return {
-                    'confidence_score': result.get('confidence_score', 50),
-                    'reasoning': result.get('reasoning', 'AI analysis completed'),
-                    'key_factors': result.get('key_factors', []),
-                    'red_flags': result.get('red_flags', []),
-                    'match_quality': result.get('match_quality', 'unknown'),
-                    'ai_analyzed': True
-                }
-                
-            except json.JSONDecodeError:
-                # Fallback to rule-based if AI response is malformed
-                print(f"⚠️  AI response parsing failed, using rule-based scoring")
-                return self._rule_based_score_listing(title, price, search_query)
-                
-        except Exception as e:
-            print(f"⚠️  AI scoring failed: {e}, using rule-based scoring")
-            return self._rule_based_score_listing(title, price, search_query)
-    
-    def _rule_based_score_listing(self, title: str, price: str, search_query: str) -> Dict:
-        """Rule-based scoring system as fallback."""
-        title_lower = title.lower()
-        query_lower = search_query.lower()
         
-        score = 50  # Start with neutral score
-        reasoning = []
-        key_factors = []
-        red_flags = []
+        model = genai.GenerativeModel('gemini-2.5-pro')
+        response = model.generate_content(prompt)
         
-        # Extract search components
-        import re
-        year_match = re.search(r'\b(19|20)\d{2}\b', query_lower)
-        target_year = year_match.group() if year_match else None
+        if not response or not response.text:
+            raise Exception("AI API returned empty response")
         
-        year_match = target_year in title_lower if target_year else True  # If no year specified, don't penalize
-        eagle_match = any(term in title_lower for term in ['silver eagle', 'ase']) and any(term in query_lower for term in ['silver eagle', 'ase'])
+        # Parse the response
+        text = response.text.strip()
         
-        # Grade matching
-        grade_keywords = ['ms6', 'ms7', 'ms8', 'ms9', 'ms67', 'ms68', 'ms69', 'ms70', 'pf6', 'pf7', 'pf8', 'pf9', 'pf69', 'pf70', 'proof']
-        search_grade = None
-        listing_grade = None
+        # Remove any markdown formatting
+        text = text.replace('```json', '').replace('```', '').strip()
         
-        for grade in grade_keywords:
-            if grade in query_lower:
-                search_grade = grade
-            if grade in title_lower:
-                listing_grade = grade
+        if not text:
+            raise Exception("AI response is empty after cleaning")
         
-        # Scoring logic
-        if target_year:
-            if year_match:
-                score += 20
-                key_factors.append(f"{target_year} year matches")
-            else:
-                score -= 30
-                red_flags.append(f"Year mismatch: expected {target_year}")
-        else:
-            # No specific year requested, don't penalize
-            score += 5
-            key_factors.append("No specific year requested")
+        result = json.loads(text)
         
-        if eagle_match:
-            score += 25
-            key_factors.append("Silver Eagle type matches")
-        else:
-            score -= 40
-            red_flags.append("Wrong coin type")
+        if 'confidence_score' not in result:
+            raise Exception("AI response missing confidence_score")
         
-        # Grade matching
-        if search_grade and listing_grade:
-            if search_grade == listing_grade:
-                score += 20
-                key_factors.append(f"Grade {search_grade.upper()} matches")
-            else:
-                score -= 15
-                red_flags.append(f"Grade mismatch: expected {search_grade.upper()}, got {listing_grade.upper()}")
-        elif search_grade and not listing_grade:
-            score -= 10
-            red_flags.append(f"Expected grade {search_grade.upper()} not found")
-        elif not search_grade and listing_grade:
-            score -= 5
-            red_flags.append(f"Unexpected grade {listing_grade.upper()} in listing")
-        
-        # Red flag detection
-        red_flag_keywords = [
-            'box only', 'coa only', 'empty', 'no coin', 'capsule only',
-            'oil filter', 'honda', 'accord', 'civic', 'pilot',
-            'walking liberty', 'mercury', 'barber', 'seated',
-            'colorized', 'color', 'colored', 'painted'
-        ]
-        
-        for flag in red_flag_keywords:
-            if flag in title_lower:
-                score -= 20
-                red_flags.append(f"Contains '{flag}'")
-        
-        # Determine match quality
-        if score >= 80:
-            match_quality = "excellent"
-        elif score >= 60:
-            match_quality = "good"
-        elif score >= 40:
-            match_quality = "fair"
-        else:
-            match_quality = "poor"
-        
-        # Generate reasoning
-        if key_factors:
-            reasoning.append(f"Positive factors: {', '.join(key_factors)}")
-        if red_flags:
-            reasoning.append(f"Red flags: {', '.join(red_flags)}")
-        
-        reasoning = " | ".join(reasoning) if reasoning else "Basic analysis completed"
+        # Ensure confidence score is between 0-100
+        confidence_score = max(0, min(100, result.get('confidence_score', 50)))
         
         return {
-            'confidence_score': max(0, min(100, score)),  # Clamp between 0-100
-            'reasoning': reasoning,
-            'key_factors': key_factors,
-            'red_flags': red_flags,
-            'match_quality': match_quality,
-            'ai_analyzed': False
+            'confidence_score': confidence_score,
+            'reasoning': result.get('reasoning', 'AI analysis completed'),
+            'key_factors': result.get('key_factors', []),
+            'red_flags': result.get('red_flags', []),
+            'match_quality': result.get('match_quality', 'unknown'),
+            'ai_analyzed': True
         }
+    
+
     
     def analyze_listings(self, listings: List[Dict], search_query: str, min_confidence: int = 50) -> Dict:
         """
         Analyze a list of listings and return confidence scores.
+        Optimized with parallel processing for better performance.
         
         Args:
             listings: List of listing dictionaries
@@ -283,30 +157,50 @@ Respond in JSON format:
         print(f"Search Query: '{search_query}'")
         print(f"Minimum Confidence: {min_confidence}%")
         
+        # Filter out None listings first
+        valid_listings = [listing for listing in listings if listing is not None]
+        
+        if not valid_listings:
+            return {
+                'search_query': search_query,
+                'total_listings_analyzed': 0,
+                'listings_above_threshold': 0,
+                'high_confidence_listings': 0,
+                'average_confidence': 0,
+                'min_confidence': 0,
+                'max_confidence': 0,
+                'scored_listings': [],
+                'analysis_timestamp': datetime.now().isoformat()
+            }
+        
         scored_listings = []
         high_confidence_count = 0
         
-        for i, listing in enumerate(listings):
-            # Safety check: ensure listing is not None
-            if listing is None:
-                print(f"⚠️  Warning: listing {i+1} is None, skipping...")
-                continue
-                
-            print(f"  Analyzing listing {i+1}/{len(listings)}: {listing.get('title', 'N/A')[:50]}...")
+        # Use ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
+            # Submit all scoring tasks
+            future_to_listing = {
+                executor.submit(self.score_listing_confidence, listing, search_query): listing 
+                for listing in valid_listings
+            }
             
-            confidence_data = self.score_listing_confidence(listing, search_query)
-            
-            # Safety check: ensure confidence_data is not None
-            if confidence_data is None:
-                print(f"⚠️  Warning: confidence_data is None for listing {i+1}, skipping...")
-                continue
-                
-            listing['confidence_analysis'] = confidence_data
-            
-            if confidence_data['confidence_score'] >= min_confidence:
-                scored_listings.append(listing)
-                if confidence_data['confidence_score'] >= 80:
-                    high_confidence_count += 1
+            # Collect results as they complete
+            for future in as_completed(future_to_listing):
+                listing = future_to_listing[future]
+                try:
+                    confidence_data = future.result()
+                    
+                    if confidence_data is not None:
+                        listing['confidence_analysis'] = confidence_data
+                        
+                        if confidence_data['confidence_score'] >= min_confidence:
+                            scored_listings.append(listing)
+                            if confidence_data['confidence_score'] >= 80:
+                                high_confidence_count += 1
+                                
+                except Exception as e:
+                    print(f"⚠️  Error processing listing: {e}")
+                    continue
         
         # Sort by confidence score (highest first)
         scored_listings.sort(key=lambda x: x['confidence_analysis']['confidence_score'], reverse=True)
@@ -316,7 +210,7 @@ Respond in JSON format:
         
         analysis_results = {
             'search_query': search_query,
-            'total_listings_analyzed': len(listings),
+            'total_listings_analyzed': len(valid_listings),
             'listings_above_threshold': len(scored_listings),
             'high_confidence_listings': high_confidence_count,
             'average_confidence': sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0,
@@ -411,96 +305,24 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
 
 def filter_coin_items(items, search_query):
     """
-    Filter items to only include relevant coins based on search query.
-    Supports Silver Eagles, Gold Eagles, and other coins.
-    If search query includes a grade (MS69, MS70, etc.), allows graded coins.
-    Otherwise, excludes graded coins and special editions.
+    Basic filter to remove obviously irrelevant items.
+    Let the AI handle the detailed analysis.
     """
     filtered_items = []
-    search_query_lower = search_query.lower()
     
-    # Extract year from search query
-    import re
-    year_match = re.search(r'\b(19|20)\d{2}\b', search_query)
-    target_year = year_match.group() if year_match else None
-    
-    # Keywords that indicate we want to KEEP the item
-    keep_keywords = [
-        'silver eagle', 'american silver eagle', 'ase', 'gold eagle', 'american gold eagle', 'age',
-        '1 oz', '1 ounce', '1/10 oz', '1/4 oz', '1/2 oz', 'troy oz', '.999', 'fine silver', 'fine gold',
-        'bullion', 'uncirculated', 'bu', 'gem bu', 'proof', 'pr70', 'pr69', 'ms70', 'ms69'
-    ]
-    
-    # Add the target year if found
-    if target_year:
-        keep_keywords.append(target_year)
-        print(f"🔍 Search includes year '{target_year}' - filtering for this year")
-    
-    # Keywords that indicate we want to EXCLUDE the item (unless specifically searched for)
+    # Only exclude completely wrong items
     exclude_keywords = [
-        'colorized', 'color', 'colored', 'painted',                   # Colorized coins
-        'walking liberty', 'mercury', 'barber', 'seated',             # Wrong coin types
-        'box only', 'coa only', 'empty', 'no coin', 'capsule only',   # Accessories only
-        'oil filter', 'honda', 'accord', 'civic', 'pilot',           # Completely wrong items
-        'littleton', 'littleton holder', 'whitman', 'folder',        # Holders/albums
-        'montauk', 'lighthouse', 'special edition', 'limited',       # Special editions
-        'toning', 'spot', 'damage', 'lower grade', 'worn'            # Damaged/toned
+        'oil filter', 'honda', 'accord', 'civic', 'pilot',  # Completely wrong items
+        'box only', 'coa only', 'empty', 'no coin', 'capsule only'  # Accessories only
     ]
-    
-    # Check if search query includes a specific grade
-    grade_keywords = ['ms6', 'ms7', 'ms8', 'ms9', 'ms67', 'ms68', 'ms69', 'ms70', 
-                     'pf6', 'pf7', 'pf8', 'pf9', 'pf69', 'pf70', 'proof']
-    search_includes_grade = any(grade in search_query_lower for grade in grade_keywords)
-    
-    # If searching for a specific grade, add that grade to keep keywords
-    if search_includes_grade:
-        # Find the specific grade in the search query
-        for grade in grade_keywords:
-            if grade in search_query_lower:
-                keep_keywords.append(grade)
-                print(f"🔍 Search includes grade '{grade.upper()}' - allowing graded coins")
-                break
     
     for item in items:
         title = item['title'].lower()
         
-        # Check if title contains any exclude keywords
+        # Only exclude if it's clearly not a coin
         should_exclude = any(keyword in title for keyword in exclude_keywords)
         
-        # Check if title contains enough keep keywords
-        keep_count = sum(1 for keyword in keep_keywords if keyword in title)
-        should_keep = keep_count >= 2  # Reduced from 3 to 2 for more flexibility
-        
-        # Additional check: must contain the target year and relevant coin type
-        has_year = target_year in title if target_year else True  # If no year specified, don't filter by year
-        has_coin_type = any(coin_type in title for coin_type in ['silver eagle', 'ase', 'gold eagle', 'age', 'eagle'])
-        
-        # If searching for a specific grade, also check that the grade matches
-        grade_matches = True
-        if search_includes_grade:
-            # Find the specific grade we're looking for
-            target_grade = None
-            for grade in grade_keywords:
-                if grade in search_query_lower:
-                    target_grade = grade
-                    break
-            
-            if target_grade:
-                # Check if the item title contains the target grade
-                grade_matches = target_grade in title
-        
-        # Debug output for first few items
-        if len(filtered_items) < 3:  # Only show debug for first 3 items
-            print(f"🔍 DEBUG: '{title[:60]}...'")
-            print(f"   should_exclude: {should_exclude}")
-            print(f"   keep_count: {keep_count} (need 2)")
-            print(f"   should_keep: {should_keep}")
-            print(f"   has_year: {has_year}")
-            print(f"   has_coin_type: {has_coin_type}")
-            print(f"   grade_matches: {grade_matches}")
-            print(f"   FINAL: {'✅ KEEP' if not should_exclude and should_keep and has_year and has_coin_type and grade_matches else '❌ EXCLUDE'}")
-        
-        if not should_exclude and should_keep and has_year and has_coin_type and grade_matches:
+        if not should_exclude:
             filtered_items.append(item)
     
     return filtered_items
@@ -798,12 +620,130 @@ def complete_ebay_analysis(search_query: str, max_results: int = 20,
     
     return comprehensive_results
 
+def batch_ebay_analysis(search_queries: List[str], max_results: int = 20, 
+                       min_confidence: int = 70, days_back: int = 90) -> Dict:
+    """
+    Process multiple search queries in parallel for batch analysis.
+    
+    Args:
+        search_queries: List of search queries to analyze
+        max_results: Maximum number of results per query
+        min_confidence: Minimum confidence score to include
+        days_back: Number of days back to search
+        
+    Returns:
+        Dictionary containing results for all queries
+    """
+    print(f"🚀 Starting batch analysis of {len(search_queries)} queries...")
+    print(f"📊 Configuration: max_results={max_results}, min_confidence={min_confidence}%, days_back={days_back}")
+    
+    all_results = {}
+    failed_queries = []
+    
+    # Process queries in parallel
+    with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
+        # Submit all analysis tasks
+        future_to_query = {
+            executor.submit(complete_ebay_analysis, query, max_results, min_confidence, days_back): query
+            for query in search_queries
+        }
+        
+        # Collect results as they complete
+        for future in as_completed(future_to_query):
+            query = future_to_query[future]
+            try:
+                result = future.result()
+                if result:
+                    all_results[query] = result
+                    print(f"✅ Completed: {query}")
+                else:
+                    failed_queries.append(query)
+                    print(f"❌ No results for: {query}")
+                    
+            except Exception as e:
+                failed_queries.append(query)
+                print(f"❌ Error analyzing '{query}': {e}")
+    
+    # Create batch summary
+    batch_summary = {
+        'total_queries': len(search_queries),
+        'successful_queries': len(all_results),
+        'failed_queries': len(failed_queries),
+        'failed_query_list': failed_queries,
+        'results': all_results,
+        'batch_timestamp': datetime.now().isoformat()
+    }
+    
+    return batch_summary
+
+def display_batch_results(batch_results: Dict):
+    """Display comprehensive results for batch analysis."""
+    print(f"\n{'='*80}")
+    print(f"📊 BATCH ANALYSIS RESULTS")
+    print(f"{'='*80}")
+    
+    summary = batch_results
+    print(f"📈 SUMMARY:")
+    print(f"  Total Queries: {summary['total_queries']}")
+    print(f"  Successful: {summary['successful_queries']}")
+    print(f"  Failed: {summary['failed_queries']}")
+    
+    if summary['failed_queries'] > 0:
+        print(f"\n❌ Failed Queries:")
+        for query in summary['failed_query_list']:
+            print(f"  • {query}")
+    
+    print(f"\n🏆 INDIVIDUAL RESULTS:")
+    for query, results in summary['results'].items():
+        print(f"\n{'─'*60}")
+        print(f"🔍 {query}")
+        print(f"{'─'*60}")
+        
+        # Display individual results
+        display_comprehensive_results(results)
+
+def save_batch_results(batch_results: Dict, filename: str = None):
+    """Save batch results to JSON file."""
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"batch_analysis_{timestamp}.json"
+    
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(batch_results, f, ensure_ascii=False, indent=2)
+        print(f"\n✅ Batch results saved to: {filename}")
+        return filename
+    except Exception as e:
+        print(f"❌ Error saving batch results: {e}")
+        return None
+
+def parse_search_queries(input_text: str) -> List[str]:
+    """
+    Parse comma-separated search queries from input text.
+    
+    Args:
+        input_text: Comma-separated list of search queries
+        
+    Returns:
+        List of cleaned search queries
+    """
+    if not input_text or not input_text.strip():
+        return []
+    
+    # Split by comma and clean each query
+    queries = [query.strip() for query in input_text.split(',')]
+    
+    # Remove empty queries
+    queries = [query for query in queries if query]
+    
+    return queries
+
 # --- Main Execution ---
 if __name__ == "__main__":
-    print("🚀 Complete eBay AI Analyzer")
-    print("=" * 50)
+    print("🚀 Complete eBay AI Analyzer (Optimized)")
+    print("=" * 60)
     print("This script combines eBay API search with Gemini AI confidence scoring")
-    print("for comprehensive coin pricing analysis.")
+    print("for comprehensive coin pricing analysis with batch processing support.")
     
     # Check if OAuth token is set
     if EBAY_ACCESS_TOKEN == 'YOUR_OAUTH_ACCESS_TOKEN':
@@ -811,63 +751,116 @@ if __name__ == "__main__":
         print("You need an OAuth access token. Get it from: https://developer.ebay.com/api-docs/static/oauth-client-credentials-grant.html")
         exit(1)
     
-    # Example searches - modify these based on your needs
-    search_queries = [
-        "2004 Silver Eagle MS69",
-        "2004 American Silver Eagle 1 Oz"
-    ]
+    # Get search queries from user input
+    print("\n📝 Enter your search queries (comma-separated):")
+    print("   Example: 2004 Silver Eagle MS69, 2005-W 1/10 oz Proof Gold Eagle $5 PCGS PR70")
     
-    all_results = []
+    user_input = input("Search queries: ").strip()
     
-    for search_query in search_queries:
-        print(f"\n{'='*60}")
-        print(f"🔍 Analyzing: {search_query}")
-        print(f"{'='*60}")
+    if not user_input:
+        print("❌ No search queries provided. Using example queries...")
+        search_queries = [
+            "2004 Silver Eagle MS69",
+            "2005-W 1/10 oz Proof Gold Eagle $5 PCGS PR70"
+        ]
+    else:
+        search_queries = parse_search_queries(user_input)
+    
+    print(f"\n🔍 Parsed {len(search_queries)} search queries:")
+    for i, query in enumerate(search_queries, 1):
+        print(f"  {i}. {query}")
+    
+    # Ask user if they want batch processing
+    print(f"\n⚡ Performance Options:")
+    print(f"  1. Batch Processing (Parallel - Faster)")
+    print(f"  2. Sequential Processing (One by one)")
+    
+    choice = input("Choose processing method (1 or 2): ").strip()
+    
+    if choice == "1":
+        print(f"\n🚀 Starting BATCH PROCESSING...")
+        start_time = time.time()
         
-        # Perform complete analysis
-        results = complete_ebay_analysis(
-            search_query=search_query,
+        # Perform batch analysis
+        batch_results = batch_ebay_analysis(
+            search_queries=search_queries,
             max_results=20,
-            min_confidence=70,  # Only include listings with 70%+ confidence
+            min_confidence=70,
             days_back=90
         )
         
-        if results:
-            # Display results
-            display_comprehensive_results(results)
-            
-            # Save results
-            save_comprehensive_results(results)
-            
-            # Store for summary
-            all_results.append(results)
+        end_time = time.time()
+        processing_time = end_time - start_time
         
-        # Add delay between searches
-        time.sleep(2)
-    
-    # Display summary of all analyses
-    if all_results:
-        print(f"\n{'='*60}")
-        print(f"📊 SUMMARY OF ALL ANALYSES")
-        print(f"{'='*60}")
+        # Display batch results
+        display_batch_results(batch_results)
         
-        for i, results in enumerate(all_results, 1):
-            query = results['search_query']
-            avg_confidence = results['summary']['average_confidence']
-            high_conf = results['summary']['high_confidence_listings']
+        # Save batch results
+        save_batch_results(batch_results)
+        
+        print(f"\n⏱️  Batch processing completed in {processing_time:.2f} seconds")
+        print(f"📊 Processed {batch_results['successful_queries']}/{batch_results['total_queries']} queries successfully")
+        
+    else:
+        print(f"\n🔄 Starting SEQUENTIAL PROCESSING...")
+        start_time = time.time()
+        
+        all_results = []
+        
+        for search_query in search_queries:
+            print(f"\n{'='*60}")
+            print(f"🔍 Analyzing: {search_query}")
+            print(f"{'='*60}")
             
-            pricing = results['pricing_analysis']
-            if pricing:
-                weighted_avg = pricing['weighted_average']
-                price_range = pricing['price_range']
-                print(f"  {i}. {query}")
-                print(f"     Confidence: {avg_confidence:.1f}% (High: {high_conf})")
-                print(f"     Price: ${weighted_avg} (Range: ${price_range:.2f})")
-            else:
-                print(f"  {i}. {query}")
-                print(f"     Confidence: {avg_confidence:.1f}% (High: {high_conf})")
-                print(f"     Price: No valid pricing data")
-            print()
+            # Perform complete analysis
+            results = complete_ebay_analysis(
+                search_query=search_query,
+                max_results=20,
+                min_confidence=70,
+                days_back=90
+            )
+            
+            if results:
+                # Display results
+                display_comprehensive_results(results)
+                
+                # Save results
+                save_comprehensive_results(results)
+                
+                # Store for summary
+                all_results.append(results)
+            
+            # Add delay between searches
+            time.sleep(2)
+        
+        end_time = time.time()
+        processing_time = end_time - start_time
+        
+        # Display summary of all analyses
+        if all_results:
+            print(f"\n{'='*60}")
+            print(f"📊 SUMMARY OF ALL ANALYSES")
+            print(f"{'='*60}")
+            
+            for i, results in enumerate(all_results, 1):
+                query = results['search_query']
+                avg_confidence = results['summary']['average_confidence']
+                high_conf = results['summary']['high_confidence_listings']
+                
+                pricing = results['pricing_analysis']
+                if pricing:
+                    weighted_avg = pricing['weighted_average']
+                    price_range = pricing['price_range']
+                    print(f"  {i}. {query}")
+                    print(f"     Confidence: {avg_confidence:.1f}% (High: {high_conf})")
+                    print(f"     Price: ${weighted_avg} (Range: ${price_range:.2f})")
+                else:
+                    print(f"  {i}. {query}")
+                    print(f"     Confidence: {avg_confidence:.1f}% (High: {high_conf})")
+                    print(f"     Price: No valid pricing data")
+                print()
+        
+        print(f"\n⏱️  Sequential processing completed in {processing_time:.2f} seconds")
     
     print(f"\n{'='*60}")
     print(f"✅ Complete Analysis Finished!")
@@ -877,4 +870,5 @@ if __name__ == "__main__":
     print(f"  • Focus on high-confidence listings for most accurate data")
     print(f"  • Compare results across different coin types and grades")
     print(f"  • Use the weighted averages for more accurate pricing")
-    print(f"  • Monitor trends by running regular analyses") 
+    print(f"  • Monitor trends by running regular analyses")
+    print(f"  • Batch processing is much faster for multiple queries") 

@@ -102,6 +102,38 @@
             transform: none;
         }
 
+        .batch-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .batch-section h3 {
+            color: #1a1a2e;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .batch-section textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+
+        .batch-section textarea:focus {
+            outline: none;
+            border-color: #ffd700;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+        }
+
         .loading {
             display: none;
             text-align: center;
@@ -465,6 +497,18 @@
                         🔍 Analyze Pricing
                     </button>
                 </form>
+                
+                <div class="batch-section">
+                    <h3>⚡ Batch Analysis (Multiple Coins)</h3>
+                    <form class="search-form" id="batchForm">
+                        <textarea class="search-input" id="batchInput" 
+                                  placeholder="Enter multiple searches separated by commas&#10;Example: 2004 Silver Eagle MS69, 2005-W 1/10 oz Proof Gold Eagle $5 PCGS PR70, 1986 Silver Eagle BU" 
+                                  rows="3" required></textarea>
+                        <button type="submit" class="search-btn" id="batchBtn">
+                            🚀 Batch Analyze
+                        </button>
+                    </form>
+                </div>
             </div>
 
             <div class="loading" id="loading">
@@ -669,6 +713,158 @@
                 hideLoading();
             }
         });
+
+        // Batch processing form handler
+        document.getElementById('batchForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const searchQueries = document.getElementById('batchInput').value.trim();
+            if (!searchQueries) {
+                showError('Please enter search queries');
+                return;
+            }
+
+            showLoading();
+            
+            try {
+                // Call the batch API
+                const response = await fetch('/api/analyze/batch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ search_queries: searchQueries })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    displayBatchResults(result.data);
+                } else {
+                    showError(result.error || 'Batch analysis failed');
+                }
+            } catch (error) {
+                console.error('Batch API call failed:', error);
+                showError('Network error. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        function displayBatchResults(batchData) {
+            const resultsSection = document.getElementById('resultsSection');
+            
+            let html = `
+                <div class="result-card">
+                    <div class="result-header">
+                        <div class="result-title">📊 Batch Analysis Results</div>
+                        <span class="confidence-badge confidence-good">
+                            ${batchData.successful_queries}/${batchData.total_queries} Successful
+                        </span>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value">${batchData.total_queries}</div>
+                            <div class="stat-label">Total Queries</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${batchData.successful_queries}</div>
+                            <div class="stat-label">Successful</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${batchData.failed_queries}</div>
+                            <div class="stat-label">Failed</div>
+                        </div>
+                    </div>
+            `;
+            
+            // Display individual results
+            for (const [query, results] of Object.entries(batchData.results)) {
+                const confidenceScore = results.summary.average_confidence;
+                const confidenceClass = getConfidenceClass(confidenceScore);
+                const confidenceLabel = getConfidenceLabel(confidenceScore);
+                
+                html += `
+                    <div class="result-card" style="margin-top: 20px; border-left: 4px solid #17a2b8;">
+                        <div class="result-header">
+                            <div class="result-title">${results.search_query}</div>
+                            <span class="confidence-badge ${confidenceClass}">
+                                ${confidenceScore.toFixed(1)}% ${confidenceLabel}
+                            </span>
+                        </div>
+                        
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value">${results.summary.total_listings_found}</div>
+                                <div class="stat-label">Listings Analyzed</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${results.summary.high_confidence_listings}</div>
+                                <div class="stat-label">High Confidence</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${formatPrice(results.pricing_analysis.weighted_average)}</div>
+                                <div class="stat-label">Weighted Average</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${formatPrice(results.pricing_analysis.price_range)}</div>
+                                <div class="stat-label">Price Range</div>
+                            </div>
+                        </div>
+                        
+                        <div class="price-range">
+                            <h3>💰 Price Analysis</h3>
+                            <div class="price-bars">
+                                <div class="price-bar">
+                                    <div class="price-fill" style="width: 100%;"></div>
+                                </div>
+                            </div>
+                            <div class="price-labels">
+                                <span>${formatPrice(results.pricing_analysis.min_price)}</span>
+                                <span>${formatPrice(results.pricing_analysis.max_price)}</span>
+                            </div>
+                            <p style="margin-top: 15px; opacity: 0.9;">
+                                <strong>Median Price:</strong> ${formatPrice(results.pricing_analysis.median_price)} | 
+                                <strong>Volatility:</strong> ${results.recommendations.pricing_insights.volatility} 
+                                (${results.recommendations.pricing_insights.reason})
+                            </p>
+                        </div>
+                        
+                        ${results.confidence_analysis && results.confidence_analysis.scored_listings ? `
+                        <div class="ebay-links">
+                            <h3>🔗 High Confidence eBay Listings</h3>
+                            <div class="links-container">
+                                ${results.confidence_analysis.scored_listings
+                                    .filter(listing => listing.confidence_analysis.confidence_score >= 80)
+                                    .slice(0, 5)
+                                    .map((listing, index) => `
+                                        <div class="ebay-link-item">
+                                            <div class="link-header">
+                                                <span class="confidence-score ${getConfidenceClass(listing.confidence_analysis.confidence_score)}">
+                                                    ${listing.confidence_analysis.confidence_score.toFixed(0)}%
+                                                </span>
+                                                <span class="price">${formatPrice(listing.soldPrice)}</span>
+                                            </div>
+                                            <div class="link-title">${listing.title}</div>
+                                            ${listing.itemWebUrl ? `
+                                                <a href="${listing.itemWebUrl}" target="_blank" class="ebay-url">
+                                                    🔗 View on eBay
+                                                </a>
+                                            ` : '<span class="no-url">⚠️ No eBay URL available</span>'}
+                                        </div>
+                                    `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            resultsSection.innerHTML = html;
+            resultsSection.style.display = 'block';
+        }
 
         // Add some interactivity to example tags
         document.querySelectorAll('.example-tag').forEach(tag => {
