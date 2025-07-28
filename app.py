@@ -71,7 +71,7 @@ def analyze_coin():
             logger.info("📊 Step 1: Calling complete_ebay_analysis...")
             results = complete_ebay_analysis(
                 search_query=search_query,
-                max_results=6,  # Reduced for faster processing
+                max_results=15,  # Increased for more data
                 min_confidence=30,  # Much lower threshold for more results
                 days_back=90
             )
@@ -173,7 +173,7 @@ def analyze_batch():
         # Run batch analysis
         batch_results = batch_ebay_analysis(
             search_queries=search_queries,
-            max_results=6,  # Reduced for faster processing
+            max_results=15,  # Increased for more data
             min_confidence=30,  # Much lower threshold for more results
             days_back=90
         )
@@ -224,6 +224,82 @@ def test_endpoint():
         'timestamp': datetime.now().isoformat(),
         'port': os.environ.get('PORT', '5000')
     })
+
+@app.route('/api/test-ebay', methods=['POST'])
+def test_ebay_api():
+    """Test eBay API without AI processing"""
+    try:
+        data = request.get_json()
+        search_query = data.get('search_query', '').strip()
+        
+        if not search_query:
+            return jsonify({
+                'error': 'Search query is required',
+                'status': 'error'
+            }), 400
+        
+        logger.info(f"🧪 Testing eBay API for: {search_query}")
+        
+        # Import the search function
+        from Complete_Ebay_AI_Analyzer import search_completed_sales
+        
+        # Test just the eBay search
+        listings = search_completed_sales(search_query, max_results=5, days_back=90)
+        
+        return jsonify({
+            'status': 'success',
+            'search_query': search_query,
+            'listings_found': len(listings) if listings else 0,
+            'listings': listings[:3] if listings else []  # Show first 3 for debugging
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ eBay API test failed: {e}")
+        return jsonify({
+            'error': f'eBay API test failed: {str(e)}',
+            'status': 'error'
+        }), 500
+
+@app.route('/api/test-ai', methods=['POST'])
+def test_ai_api():
+    """Test Gemini AI API without eBay processing"""
+    try:
+        data = request.get_json()
+        test_text = data.get('test_text', 'Hello, how are you?')
+        
+        logger.info(f"🧪 Testing Gemini AI API with: {test_text}")
+        
+        # Import the AI components
+        import google.generativeai as genai
+        import os
+        
+        # Set up the API key
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+            return jsonify({
+                'error': 'GEMINI_API_KEY not set',
+                'status': 'error'
+            }), 500
+        
+        genai.configure(api_key=api_key)
+        
+        # Test the AI
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(f"Say hello to: {test_text}")
+        
+        return jsonify({
+            'status': 'success',
+            'test_text': test_text,
+            'ai_response': response.text,
+            'model': 'gemini-2.5-flash'
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ AI API test failed: {e}")
+        return jsonify({
+            'error': f'AI API test failed: {str(e)}',
+            'status': 'error'
+        }), 500
 
 if __name__ == '__main__':
     print("🤖 eBay AI Analyzer API Server")

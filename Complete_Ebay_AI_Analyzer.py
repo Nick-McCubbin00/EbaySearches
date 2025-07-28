@@ -30,11 +30,11 @@ EBAY_BROWSE_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/sear
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')  # Get from environment variable
 
 # Performance Configuration
-MAX_CONCURRENT_REQUESTS = 10  # Reduced for better reliability
-AI_BATCH_SIZE = 10  # Smaller batches for faster processing
+MAX_CONCURRENT_REQUESTS = 3  # Increased from 1 to 3 for better performance
+AI_BATCH_SIZE = 8  # Increased from 3 to 8 for faster AI processing
 CACHE_TTL = 600  # Cache results for 10 minutes (increased from 5)
-MAX_RESULTS_DEFAULT = 20  # Reduced for faster processing
-MIN_CONFIDENCE_DEFAULT = 70  # Much lower threshold for more results
+MAX_RESULTS_DEFAULT = 15  # Increased from 5 to 15 for more data
+MIN_CONFIDENCE_DEFAULT = 30  # Much lower threshold for more results
 
 # Thread-local storage for API rate limiting
 thread_local = threading.local()
@@ -45,7 +45,8 @@ _cache_timestamps = {}
 
 # Rate limiting for API calls
 _last_api_call = 0
-_api_call_interval = 0.5  # Minimum 0.5 seconds between API calls
+_api_call_interval = 1.5  # Reduced from 2.0 to 1.5 seconds between API calls
+_ebay_api_call_interval = 0.8  # Reduced from 1.0 to 0.8 seconds between eBay API calls
 
 # --- AI Confidence Scoring System ---
 
@@ -122,9 +123,18 @@ SEARCH QUERY: "{search_query}"
 LISTINGS TO ANALYZE:
 {batch_text}
 
-For each listing, provide:
+Analyze the listing and provide:
 1. A confidence score from 0-100 (where 100 = perfect match, 0 = completely wrong)
-2. Brief reasoning (under 30 words)
+2. Brief reasoning for the score (keep under 50 words)
+3. Key factors that influenced your decision
+
+Consider:
+- Does it match the year specified in the search query?
+- Does it match the coin type (Silver Eagle, Gold Eagle, etc.)?
+- Does it match any specified grade (MS69, MS70, PR70, etc.)?
+- Is it the actual coin or just accessories/boxes?
+- Is it the right condition/type?
+- Are there any red flags (wrong coin, damaged, etc.)?
 
 Respond in JSON format with an array of results:
 {{
@@ -148,6 +158,9 @@ Respond in JSON format with an array of results:
             response = model.generate_content(prompt)
             response_text = response.text.strip()
             _last_api_call = time.time()
+            
+            # Add delay after AI API call to prevent rate limiting
+            time.sleep(0.5)  # Reduced from 1 to 0.5 seconds after AI API call
             
             # Parse JSON response
             if response_text.startswith('```json'):
@@ -174,6 +187,9 @@ Respond in JSON format with an array of results:
             
         except Exception as e:
             print(f"⚠️  Batch scoring failed, falling back to individual scoring: {e}")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error details: {str(e)}")
+            print(f"Response text (if any): {response_text if 'response_text' in locals() else 'No response'}")
             # Fallback to individual scoring with retry
             scored_listings = []
             for listing in listings:
@@ -182,6 +198,7 @@ Respond in JSON format with an array of results:
                     scored_listings.append(result)
                 except Exception as e:
                     print(f"⚠️  Failed to score listing: {e}")
+                    print(f"Listing title: {listing.get('title', 'Unknown')}")
                     continue
             return scored_listings
     
@@ -223,6 +240,9 @@ Respond in JSON format:
         if not response or not response.text:
             raise Exception("AI API returned empty response")
         
+        # Add delay after AI API call to prevent rate limiting
+        time.sleep(0.5)  # Reduced from 1 to 0.5 seconds after AI API call
+        
         # Parse the response
         text = response.text.strip()
         
@@ -251,7 +271,7 @@ Respond in JSON format:
     
 
     
-    def analyze_listings(self, listings: List[Dict], search_query: str, min_confidence: int = 50) -> Dict:
+    def analyze_listings(self, listings: List[Dict], search_query: str, min_confidence: int = 30) -> Dict:
         """
         Analyze a list of listings and return confidence scores.
         Optimized with batch processing for better performance.
@@ -305,6 +325,8 @@ Respond in JSON format:
                             
             except Exception as e:
                 print(f"⚠️  Batch processing failed, falling back to individual scoring: {e}")
+                print(f"Error type: {type(e).__name__}")
+                print(f"Error details: {str(e)}")
                 # Fallback to individual scoring for this batch
                 with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
                     future_to_listing = {
@@ -324,6 +346,7 @@ Respond in JSON format:
                                         high_confidence_count += 1
                         except Exception as e:
                             print(f"⚠️  Error processing listing: {e}")
+                            print(f"Listing title: {listing.get('title', 'Unknown')}")
                             continue
         
         # Sort by confidence score (highest first)
@@ -385,6 +408,15 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
     logger.info(f"Token length: {len(EBAY_ACCESS_TOKEN) if EBAY_ACCESS_TOKEN else 0}")
     logger.info("Note: This shows sold items, not necessarily completed transactions.")
     
+    # Rate limiting for eBay API
+    global _last_api_call
+    current_time = time.time()
+    time_since_last = current_time - _last_api_call
+    if time_since_last < _ebay_api_call_interval:
+        sleep_time = _ebay_api_call_interval - time_since_last
+        logger.info(f"⏳ Rate limiting: waiting {sleep_time:.1f}s before eBay API call")
+        time.sleep(sleep_time)
+    
     try:
         # Make the actual HTTP request to eBay Browse API with timeout:
         logger.info(f"Making request to eBay API with params: {params}")
@@ -393,6 +425,8 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
         logger.info(f"Response status code: {response.status_code}")
         logger.info(f"Response headers: {dict(response.headers)}")
         
+        _last_api_call = time.time()  # Update last call time
+            
         if response.status_code != 200:
             logger.error(f"Response text: {response.text[:1000]}...")  # Show first 1000 chars of error
             response.raise_for_status()
@@ -421,19 +455,22 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
         return sold_items
 
     except requests.exceptions.Timeout:
-        print("❌ eBay API request timed out (30s). Please try again.")
+        logger.error("❌ eBay API request timed out (30s). Please try again.")
         return []
-    except requests.exceptions.ConnectionError:
-        print("❌ Network connection error. Please check your internet connection.")
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"❌ Network connection error: {e}")
+        logger.error("Please check your internet connection and try again.")
         return []
     except requests.exceptions.RequestException as e:
-        print(f"❌ API Request Error: {e}")
+        logger.error(f"❌ API Request Error: {e}")
+        logger.error(f"Request details: {params}")
         return []
-    except json.JSONDecodeError:
-        print("❌ Error: Could not decode JSON response from eBay API.")
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ Error: Could not decode JSON response from eBay API: {e}")
         return []
     except Exception as e:
-        print(f"❌ An unexpected error occurred: {e}")
+        logger.error(f"❌ An unexpected error occurred: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
         return []
 
 def filter_coin_items(items, search_query):
@@ -805,7 +842,8 @@ def batch_ebay_analysis(search_queries: List[str], max_results: int = MAX_RESULT
         for future in as_completed(future_to_query):
             query = future_to_query[future]
             try:
-                result = future.result()
+                # Add timeout to prevent hanging
+                result = future.result(timeout=60)  # 60 second timeout per query
                 if result:
                     all_results[query] = result
                     print(f"✅ Completed: {query}")
@@ -813,9 +851,16 @@ def batch_ebay_analysis(search_queries: List[str], max_results: int = MAX_RESULT
                     failed_queries.append(query)
                     print(f"❌ No results for: {query}")
                     
+                # Add delay between queries to prevent rate limiting
+                time.sleep(2)  # Reduced from 3 to 2 seconds between queries
+                    
+            except TimeoutError:
+                failed_queries.append(query)
+                print(f"⏰ Timeout analyzing '{query}' (60s)")
             except Exception as e:
                 failed_queries.append(query)
                 print(f"❌ Error analyzing '{query}': {e}")
+                # Continue with other queries instead of failing the entire batch
     
     # Create batch summary
     batch_summary = {
