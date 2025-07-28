@@ -49,7 +49,7 @@ def analyze_coin():
         # Run the complete real analysis
         results = complete_ebay_analysis(
             search_query=search_query,
-            max_results=10,  # Reduced for faster processing
+            max_results=8,  # Reduced for Render.com stability
             min_confidence=60,  # Reduced for more results
             days_back=90
         )
@@ -139,7 +139,7 @@ def analyze_batch():
         # Run batch analysis
         batch_results = batch_ebay_analysis(
             search_queries=search_queries,
-            max_results=10,  # Reduced for faster processing
+            max_results=8,  # Reduced for Render.com stability
             min_confidence=60,  # Reduced for more results
             days_back=90
         )

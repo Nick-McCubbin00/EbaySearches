@@ -26,10 +26,10 @@ EBAY_BROWSE_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/sear
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')  # Get from environment variable
 
 # Performance Configuration
-MAX_CONCURRENT_REQUESTS = 10  # Increased from 5 to 10
-AI_BATCH_SIZE = 20  # Increased from 10 to 20
+MAX_CONCURRENT_REQUESTS = 3  # Reduced for Render.com stability
+AI_BATCH_SIZE = 5  # Reduced batch size for better reliability
 CACHE_TTL = 600  # Cache results for 10 minutes (increased from 5)
-MAX_RESULTS_DEFAULT = 10  # Reduced from 20 to 10 for faster processing
+MAX_RESULTS_DEFAULT = 8  # Reduced for faster processing
 MIN_CONFIDENCE_DEFAULT = 60  # Reduced from 70 to 60 to get more results faster
 
 # Thread-local storage for API rate limiting
@@ -38,6 +38,10 @@ thread_local = threading.local()
 # Simple in-memory cache for results
 _result_cache = {}
 _cache_timestamps = {}
+
+# Rate limiting for API calls
+_last_api_call = 0
+_api_call_interval = 0.5  # Minimum 0.5 seconds between API calls
 
 # --- AI Confidence Scoring System ---
 
@@ -128,9 +132,18 @@ Respond in JSON format with an array of results:
 """
         
         try:
+            # Simple rate limiting
+            global _last_api_call
+            current_time = time.time()
+            time_since_last = current_time - _last_api_call
+            if time_since_last < _api_call_interval:
+                time.sleep(_api_call_interval - time_since_last)
+            
             model = genai.GenerativeModel('gemini-pro')
-            response = model.generate_content(prompt)
+            # Add timeout for AI requests
+            response = model.generate_content(prompt, timeout=60)
             response_text = response.text.strip()
+            _last_api_call = time.time()
             
             # Parse JSON response
             if response_text.startswith('```json'):
@@ -157,8 +170,16 @@ Respond in JSON format with an array of results:
             
         except Exception as e:
             print(f"⚠️  Batch scoring failed, falling back to individual scoring: {e}")
-            # Fallback to individual scoring
-            return [self.score_listing_confidence(listing, search_query) for listing in listings]
+            # Fallback to individual scoring with retry
+            scored_listings = []
+            for listing in listings:
+                try:
+                    result = self.score_listing_confidence(listing, search_query)
+                    scored_listings.append(result)
+                except Exception as e:
+                    print(f"⚠️  Failed to score listing: {e}")
+                    continue
+            return scored_listings
     
     def _ai_score_listing(self, title: str, price: str, search_query: str) -> Dict:
         """Use Google Gemini to score listing confidence."""
@@ -361,8 +382,8 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
     print("Note: This shows sold items, not necessarily completed transactions.")
     
     try:
-        # Make the actual HTTP request to eBay Browse API:
-        response = requests.get(EBAY_BROWSE_API_ENDPOINT, params=params, headers=headers)
+        # Make the actual HTTP request to eBay Browse API with timeout:
+        response = requests.get(EBAY_BROWSE_API_ENDPOINT, params=params, headers=headers, timeout=30)
         print(f"Response status code: {response.status_code}")
         
         if response.status_code != 200:
@@ -392,14 +413,20 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
                 sold_items.append(sold_item)
         return sold_items
 
+    except requests.exceptions.Timeout:
+        print("❌ eBay API request timed out (30s). Please try again.")
+        return []
+    except requests.exceptions.ConnectionError:
+        print("❌ Network connection error. Please check your internet connection.")
+        return []
     except requests.exceptions.RequestException as e:
-        print(f"API Request Error: {e}")
+        print(f"❌ API Request Error: {e}")
         return []
     except json.JSONDecodeError:
-        print("Error: Could not decode JSON response from eBay API.")
+        print("❌ Error: Could not decode JSON response from eBay API.")
         return []
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"❌ An unexpected error occurred: {e}")
         return []
 
 def filter_coin_items(items, search_query):
