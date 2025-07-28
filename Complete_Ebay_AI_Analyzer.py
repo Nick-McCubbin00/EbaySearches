@@ -26,12 +26,18 @@ EBAY_BROWSE_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/sear
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')  # Get from environment variable
 
 # Performance Configuration
-MAX_CONCURRENT_REQUESTS = 5  # Limit concurrent API calls
-AI_BATCH_SIZE = 10  # Process AI scoring in batches
-CACHE_TTL = 300  # Cache results for 5 minutes
+MAX_CONCURRENT_REQUESTS = 10  # Increased from 5 to 10
+AI_BATCH_SIZE = 20  # Increased from 10 to 20
+CACHE_TTL = 600  # Cache results for 10 minutes (increased from 5)
+MAX_RESULTS_DEFAULT = 10  # Reduced from 20 to 10 for faster processing
+MIN_CONFIDENCE_DEFAULT = 60  # Reduced from 70 to 60 to get more results faster
 
 # Thread-local storage for API rate limiting
 thread_local = threading.local()
+
+# Simple in-memory cache for results
+_result_cache = {}
+_cache_timestamps = {}
 
 # --- AI Confidence Scoring System ---
 
@@ -74,6 +80,86 @@ class eBayConfidenceScorer:
         
         return self._ai_score_listing(title, price, search_query)
     
+    def score_listings_batch(self, listings: List[Dict], search_query: str) -> List[Dict]:
+        """
+        Score multiple listings in a single API call for better performance.
+        
+        Args:
+            listings: List of listing dictionaries
+            search_query: Original search query
+            
+        Returns:
+            List of dictionaries with confidence scores
+        """
+        if not self.use_ai:
+            raise Exception("AI scoring is required but not available")
+        
+        if not listings:
+            return []
+        
+        # Create batch prompt
+        batch_data = []
+        for i, listing in enumerate(listings):
+            title = listing.get('title', '')
+            price = listing.get('soldPrice', 'N/A')
+            batch_data.append(f"LISTING {i+1}: Title='{title}', Price={price}")
+        
+        batch_text = "\n".join(batch_data)
+        
+        prompt = f"""
+You are an expert coin collector and eBay listing analyzer. Score multiple listings for relevance to a search query.
+
+SEARCH QUERY: "{search_query}"
+
+LISTINGS TO ANALYZE:
+{batch_text}
+
+For each listing, provide:
+1. A confidence score from 0-100 (where 100 = perfect match, 0 = completely wrong)
+2. Brief reasoning (under 30 words)
+
+Respond in JSON format with an array of results:
+{{
+  "results": [
+    {{"listing_index": 0, "confidence_score": 85, "reasoning": "Perfect match for year and grade"}},
+    {{"listing_index": 1, "confidence_score": 20, "reasoning": "Wrong coin type"}}
+  ]
+}}
+"""
+        
+        try:
+            model = genai.GenerativeModel('gemini-pro')
+            response = model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # Parse JSON response
+            if response_text.startswith('```json'):
+                response_text = response_text[7:-3]
+            elif response_text.startswith('```'):
+                response_text = response_text[3:-3]
+            
+            result_data = json.loads(response_text)
+            
+            # Map results back to listings
+            scored_listings = []
+            for result in result_data.get('results', []):
+                listing_index = result.get('listing_index', 0)
+                if listing_index < len(listings):
+                    listing = listings[listing_index].copy()
+                    listing['confidence_analysis'] = {
+                        'confidence_score': result.get('confidence_score', 0),
+                        'reasoning': result.get('reasoning', 'No reasoning provided'),
+                        'key_factors': result.get('reasoning', 'No factors identified')
+                    }
+                    scored_listings.append(listing)
+            
+            return scored_listings
+            
+        except Exception as e:
+            print(f"⚠️  Batch scoring failed, falling back to individual scoring: {e}")
+            # Fallback to individual scoring
+            return [self.score_listing_confidence(listing, search_query) for listing in listings]
+    
     def _ai_score_listing(self, title: str, price: str, search_query: str) -> Dict:
         """Use Google Gemini to score listing confidence."""
         prompt = f"""
@@ -85,7 +171,7 @@ PRICE: {price}
 
 Analyze the listing and provide:
 1. A confidence score from 0-100 (where 100 = perfect match, 0 = completely wrong)
-2. Brief reasoning for the score
+2. Brief reasoning for the score (keep under 50 words)
 3. Key factors that influenced your decision
 
 Consider:
@@ -143,7 +229,7 @@ Respond in JSON format:
     def analyze_listings(self, listings: List[Dict], search_query: str, min_confidence: int = 50) -> Dict:
         """
         Analyze a list of listings and return confidence scores.
-        Optimized with parallel processing for better performance.
+        Optimized with batch processing for better performance.
         
         Args:
             listings: List of listing dictionaries
@@ -176,31 +262,44 @@ Respond in JSON format:
         scored_listings = []
         high_confidence_count = 0
         
-        # Use ThreadPoolExecutor for parallel processing
-        with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
-            # Submit all scoring tasks
-            future_to_listing = {
-                executor.submit(self.score_listing_confidence, listing, search_query): listing 
-                for listing in valid_listings
-            }
+        # Process listings in batches for better performance
+        batch_size = AI_BATCH_SIZE
+        for i in range(0, len(valid_listings), batch_size):
+            batch = valid_listings[i:i + batch_size]
+            print(f"📦 Processing batch {i//batch_size + 1}/{(len(valid_listings) + batch_size - 1)//batch_size}")
             
-            # Collect results as they complete
-            for future in as_completed(future_to_listing):
-                listing = future_to_listing[future]
-                try:
-                    confidence_data = future.result()
+            try:
+                # Use batch scoring for better performance
+                batch_results = self.score_listings_batch(batch, search_query)
+                
+                for listing in batch_results:
+                    if listing.get('confidence_analysis', {}).get('confidence_score', 0) >= min_confidence:
+                        scored_listings.append(listing)
+                        if listing['confidence_analysis']['confidence_score'] >= 80:
+                            high_confidence_count += 1
+                            
+            except Exception as e:
+                print(f"⚠️  Batch processing failed, falling back to individual scoring: {e}")
+                # Fallback to individual scoring for this batch
+                with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
+                    future_to_listing = {
+                        executor.submit(self.score_listing_confidence, listing, search_query): listing 
+                        for listing in batch
+                    }
                     
-                    if confidence_data is not None:
-                        listing['confidence_analysis'] = confidence_data
-                        
-                        if confidence_data['confidence_score'] >= min_confidence:
-                            scored_listings.append(listing)
-                            if confidence_data['confidence_score'] >= 80:
-                                high_confidence_count += 1
-                                
-                except Exception as e:
-                    print(f"⚠️  Error processing listing: {e}")
-                    continue
+                    for future in as_completed(future_to_listing):
+                        listing = future_to_listing[future]
+                        try:
+                            confidence_data = future.result()
+                            if confidence_data is not None:
+                                listing['confidence_analysis'] = confidence_data
+                                if confidence_data['confidence_score'] >= min_confidence:
+                                    scored_listings.append(listing)
+                                    if confidence_data['confidence_score'] >= 80:
+                                        high_confidence_count += 1
+                        except Exception as e:
+                            print(f"⚠️  Error processing listing: {e}")
+                            continue
         
         # Sort by confidence score (highest first)
         scored_listings.sort(key=lambda x: x['confidence_analysis']['confidence_score'], reverse=True)
@@ -563,8 +662,8 @@ def save_comprehensive_results(results: Dict, filename: str = None):
 
 # --- Main Workflow Function ---
 
-def complete_ebay_analysis(search_query: str, max_results: int = 20, 
-                          min_confidence: int = 70, days_back: int = 90) -> Dict:
+def complete_ebay_analysis(search_query: str, max_results: int = MAX_RESULTS_DEFAULT, 
+                          min_confidence: int = MIN_CONFIDENCE_DEFAULT, days_back: int = 90) -> Dict:
     """
     Complete workflow: Search eBay → Filter → AI Confidence Scoring → Analysis
     
@@ -577,6 +676,21 @@ def complete_ebay_analysis(search_query: str, max_results: int = 20,
     Returns:
         Dictionary with comprehensive analysis results
     """
+    # Check cache first
+    cache_key = f"{search_query}_{max_results}_{min_confidence}_{days_back}"
+    current_time = time.time()
+    
+    if cache_key in _result_cache:
+        cache_age = current_time - _cache_timestamps.get(cache_key, 0)
+        if cache_age < CACHE_TTL:
+            print(f"✅ Using cached result for '{search_query}' (age: {cache_age:.1f}s)")
+            return _result_cache[cache_key]
+        else:
+            # Remove expired cache entry
+            del _result_cache[cache_key]
+            if cache_key in _cache_timestamps:
+                del _cache_timestamps[cache_key]
+    
     print(f"\n{'='*60}")
     print(f"🚀 COMPLETE EBAY AI ANALYSIS WORKFLOW")
     print(f"{'='*60}")
@@ -618,10 +732,15 @@ def complete_ebay_analysis(search_query: str, max_results: int = 20,
     print(f"\n📈 Step 5: Generating comprehensive report...")
     comprehensive_results = generate_comprehensive_report(analysis_results, search_query)
     
+    # Cache the result
+    _result_cache[cache_key] = comprehensive_results
+    _cache_timestamps[cache_key] = current_time
+    print(f"✅ Cached result for '{search_query}'")
+    
     return comprehensive_results
 
-def batch_ebay_analysis(search_queries: List[str], max_results: int = 20, 
-                       min_confidence: int = 70, days_back: int = 90) -> Dict:
+def batch_ebay_analysis(search_queries: List[str], max_results: int = MAX_RESULTS_DEFAULT, 
+                       min_confidence: int = MIN_CONFIDENCE_DEFAULT, days_back: int = 90) -> Dict:
     """
     Process multiple search queries in parallel for batch analysis.
     
