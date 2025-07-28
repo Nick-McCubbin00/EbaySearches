@@ -9,6 +9,7 @@ import requests
 import json
 import os
 import time
+import logging
 from typing import List, Dict
 from datetime import datetime, timedelta
 import google.generativeai as genai
@@ -16,6 +17,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from functools import lru_cache
 import re
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # --- Configuration ---
 # eBay API Configuration
@@ -718,16 +722,16 @@ def complete_ebay_analysis(search_query: str, max_results: int = MAX_RESULTS_DEF
             if cache_key in _cache_timestamps:
                 del _cache_timestamps[cache_key]
     
-    print(f"\n{'='*60}")
-    print(f"🚀 COMPLETE EBAY AI ANALYSIS WORKFLOW")
-    print(f"{'='*60}")
-    print(f"Search Query: '{search_query}'")
-    print(f"Max Results: {max_results}")
-    print(f"Min Confidence: {min_confidence}%")
-    print(f"Search Period: Last {days_back} days")
+    logger.info(f"\n{'='*60}")
+    logger.info(f"🚀 COMPLETE EBAY AI ANALYSIS WORKFLOW")
+    logger.info(f"{'='*60}")
+    logger.info(f"Search Query: '{search_query}'")
+    logger.info(f"Max Results: {max_results}")
+    logger.info(f"Min Confidence: {min_confidence}%")
+    logger.info(f"Search Period: Last {days_back} days")
     
     # Step 1: Search eBay for listings
-    print(f"\n📊 Step 1: Searching eBay listings...")
+    logger.info(f"\n📊 Step 1: Searching eBay listings...")
     listings = search_completed_sales(search_query, max_results, days_back)
     
     if not listings:

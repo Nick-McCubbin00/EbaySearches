@@ -13,12 +13,24 @@ import traceback
 from datetime import datetime
 import threading
 import queue
+import time
+import logging
 
 # Import our analyzer functions
 from Complete_Ebay_AI_Analyzer import complete_ebay_analysis
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Configuration - Always use real analysis
 print(f"✅ Real eBay AI Analyzer loaded - Full functionality enabled")
@@ -44,15 +56,30 @@ def analyze_coin():
                 'status': 'error'
             }), 400
         
-        print(f"🔍 Analyzing: {search_query}")
+        logger.info(f"🔍 Starting analysis for: {search_query}")
+        start_time = time.time()
         
-        # Run the complete real analysis
-        results = complete_ebay_analysis(
-            search_query=search_query,
-            max_results=8,  # Reduced for Render.com stability
-            min_confidence=60,  # Reduced for more results
-            days_back=90
-        )
+        # Run the complete real analysis with timeout
+        try:
+            logger.info("📊 Step 1: Calling complete_ebay_analysis...")
+            results = complete_ebay_analysis(
+                search_query=search_query,
+                max_results=8,  # Reduced for Render.com stability
+                min_confidence=60,  # Reduced for more results
+                days_back=90
+            )
+            
+            analysis_time = time.time() - start_time
+            logger.info(f"✅ Analysis completed in {analysis_time:.2f} seconds")
+            
+        except Exception as analysis_error:
+            logger.error(f"❌ Analysis failed: {analysis_error}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return jsonify({
+                'error': f'Analysis failed: {str(analysis_error)}',
+                'status': 'error',
+                'traceback': traceback.format_exc() if app.debug else None
+            }), 500
         
         # Check if results is None (no listings found)
         if results is None:
@@ -173,9 +200,22 @@ def api_status():
 @app.route('/api/health')
 def health_check():
     """Simple health check endpoint"""
+    logger.info("🏥 Health check requested")
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'service': 'eBay AI Analyzer',
+        'version': '1.0.0'
+    })
+
+@app.route('/api/test')
+def test_endpoint():
+    """Test endpoint to verify service is working"""
+    logger.info("🧪 Test endpoint called")
+    return jsonify({
+        'message': 'Service is running!',
+        'timestamp': datetime.now().isoformat(),
+        'port': os.environ.get('PORT', '5000')
     })
 
 if __name__ == '__main__':
