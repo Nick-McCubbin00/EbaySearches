@@ -30,11 +30,11 @@ EBAY_BROWSE_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/sear
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')  # Get from environment variable
 
 # Performance Configuration
-MAX_CONCURRENT_REQUESTS = 3  # Reduced for Render.com stability
-AI_BATCH_SIZE = 5  # Reduced batch size for better reliability
+MAX_CONCURRENT_REQUESTS = 10  # Reduced for better reliability
+AI_BATCH_SIZE = 10  # Smaller batches for faster processing
 CACHE_TTL = 600  # Cache results for 10 minutes (increased from 5)
-MAX_RESULTS_DEFAULT = 8  # Reduced for faster processing
-MIN_CONFIDENCE_DEFAULT = 60  # Reduced from 70 to 60 to get more results faster
+MAX_RESULTS_DEFAULT = 20  # Reduced for faster processing
+MIN_CONFIDENCE_DEFAULT = 70  # Much lower threshold for more results
 
 # Thread-local storage for API rate limiting
 thread_local = threading.local()
@@ -143,9 +143,9 @@ Respond in JSON format with an array of results:
             if time_since_last < _api_call_interval:
                 time.sleep(_api_call_interval - time_since_last)
             
-            model = genai.GenerativeModel('gemini-pro')
-            # Add timeout for AI requests
-            response = model.generate_content(prompt, timeout=60)
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            # Remove timeout parameter as it's not supported
+            response = model.generate_content(prompt)
             response_text = response.text.strip()
             _last_api_call = time.time()
             
@@ -217,7 +217,7 @@ Respond in JSON format:
 }}
 """
         
-        model = genai.GenerativeModel('gemini-2.5-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
         
         if not response or not response.text:
@@ -366,11 +366,10 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
         print("   Please set EBAY_ACCESS_TOKEN environment variable on Render")
         return []
 
-    # API parameters for the Browse API with soldItems filter
+    # API parameters for the Browse API - search for items
     params = {
         'q': keywords,  # Search query
         'limit': min(max_results, 50),  # Limit results (max 50 per page)
-        'filter': 'soldItems',  # Only show sold/completed items
         'sort': 'price',  # Sort by price
     }
 

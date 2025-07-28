@@ -21,7 +21,7 @@ from Complete_Ebay_AI_Analyzer import complete_ebay_analysis
 
 # Set environment variables if not already set (for local development)
 if not os.getenv('EBAY_ACCESS_TOKEN'):
-    os.environ['EBAY_ACCESS_TOKEN'] = "v^1.1#i^1#f^0#p^1#I^3#r^0#t^H4sIAAAAAAAA/+VYbWxTVRhuu25zm0MJgoQQrBdwILm396O3vb1pa7puY43dVtZtbnMw78cpu6z3w3vuZRQEa0US8I8BI4kTJQRiSIx/8As1hA+RH2rQQELghySYKInBCH4QokTv7croJgFkjVli/zTnPe95z/M8533POffcueqax7e0brla76x27c7hOZfTSdThNVWVy2ZUuOZVOvASB+fu3KKcO19xMQQ5OaOxnQBqqgKBZ52cUSBbMIYRU1dYlYMSZBVOBpA1BDYVbUuwJIazmq4aqqBmEE+8KYwQOIFzVJom/TQnUpZNuRGxSw0jpAD8aZqhaEDzPpIhrX4ITRBXoMEphtWPkzSKB1CS6SICLO5jCQrz475+xNMDdCipiuWC4UikAJYtjNVLkN4eKAch0A0rCBKJR1tSHdF4U3N7V8hbEitSVCFlcIYJJ7Ziqgg8PVzGBLefBha82ZQpCABCxBsZm2FiUDZ6A8w9wC8IDYgAHxB9wEf6fDTPM2WRskXVZc64PQ7bIolouuDKAsWQjOydFLXU4NcAwSi22q0Q8SaP/bfC5DJSWgJ6GGlujPZFk0kk0q3ZGoIYGlMlBaLJziaUYQAjCAxBowGc4C2+YnGWsVBFjSdNE1MVUbIVg5521WgEFmQwURg/S5cIYzl1KB16NG3YcEr9gkUB6WCw317RsSU0jSHFXlQgWyp4Cs07yz8+2jB0iTcNMB5hckdBnzDCaZokIpM7C4lYzJ11MIwMGYbGer0jIyPYCIWp+movieOEt7ctkRKGgMwhN3ztWofSnQegUoGKAKyRUGKNrGZhWWclqgVAWY1EaIoIEnhR94mwIpOt/zCUcPZOLIdylQcTDAQpv0iRJOenGH+6HOURKWao18YBeC6Lypw+DAwtwwkAFaw8M2WgSyJL0WmSYtIAFf3BNOoLptMoT4t+lEgDgAPA80KQ+d9Uyd3meQoIOjDKl+jlSHI5PdTqZ+gVjfEW/5pepVlPtDUZ0VZvX6NOdbYtTyxLru8xexP9I6AtfLelcEvysYxkKdNlzV9OAexan7oIrSo0gDgleilB1UBSzUhCdnotMKWLSU43simQyViGKZGMalq8jBt1Oej9mz3i3kiX+XT670+mW7KCdr5OL1b2eGgF4DQJs88eTFBlr8pZlw7bNAjtWrdRT4m3ZF1YpxVri+QYW0kcu2liBcoYXCtgOoCqqVuXbKzDvnt1qcNAsQ4zQ1czGaD3EFMuZlk2DY7PgOlW1WVIcImbZictEaCpAEmSNDUlXkLhHB2cbltSWfdhL3QH7/o27Z34WR9xFH5E3nkUzzsPuZxOPIQvJhbij1ZVdLsr7p8HJQNgEpfGoLRasb5XdYANg6zGSbprluPkjIT4QmvitxxvfvjUr08wjvqSV4XdK/G54+8KNRVEXckjAz7/Zk8l8cDD9SSNB0iGCOA+gurHF97sdRNz3A99d+SdT/g3dhLa8X0/5gbQYP7TUAqvH3dyOisd7rzTsalhU+2O6vaXDy9Z7z6/0zzwyr7YD6ORM/tHT89bmprt2rAov/15UfhraM+bHQ/6QpWrhGbO9eeVmseeJndVr/36s9y3c775KHep7ZCZH52Lu5fP3HA8Mni97gPqzB/dYuvlBvkUu/f9C08e+Z7fuevKsesnHM+d7KRnuH6/fHagf+PKS0vyP62KB784173j2QXxgRp4ZlffgbcGLs68NszFpEUbniEWNwzu3ey/2n5w24WDO+bO2txQu2x+xavo4XPVr12AR4+podr3ti7YvlXOnpX73j09vP6l5suHq34eWLqx9/Utqz4+/eK24+e/6vvlkaQ/Ekf2Xz13YlQbOfhl3eCpWuG+tz+/tic0e2wt/wbftsIV7xEAAA=="
+    os.environ['EBAY_ACCESS_TOKEN'] = 'v^1.1#i^1#p^1#I^3#r^0#f^0#t^H4sIAAAAAAAA/+VYbWxTZRxvt2442JwoIkzUcogRlmvvrr32elsLfWFbSbeVtdRtyST38tx27Hp33HNlG4nabQoJQRRfMOEDTJCo+EGDEBMT34BkMUGNH4yGVyN88DVGIyEGI961ZXST8LYmLrFfmvs//+f//H6/5/9/3rBsZdXyzS2bL9ZYZ5WNZbFsmdWKz8GqKivq7ywvq6uwYEUO1rHsw1nbSPn3jZBJSyrdAaCqyBDYB9OSDOmc0Y9kNJlWGChCWmbSANI6RyeCrTGacGC0qim6wikSYo9G/IiXJ30MxrI45QWkx+MxrPKVmEnFj7gElvKY7V4Sc5ECZbRDmAFRGeqMrPsRAiNIFPOiBJXEvTTupkm3g/IR3Yg9BTQoKrLh4sCQQA4uneurFWG9PlQGQqDpRhAkEA02JdqD0ciqtmSjsyhWoKBDQmf0DJz8FVZ4YE8xUgZcfxiY86YTGY4DECLOQH6EyUHp4BUwtwE/JzXp4zg3QfA4xzJAAERJpGxStDSjXx+HaRF5VMi50kDWRX3oRooaarDrAacXvtqMENGI3fxbk2EkURCB5kdWhYJdwXgcCaxVTQ1BGA0rogzReEcEpShAcRyFk6gXw1mSZfnCKPlQBY2nDBNWZF40FYP2NkUPAQMymCoMViSM4dQut2tBQTfhFPv5rghIUd3mjOanMKP3yeakgrShgj33eWP5J3rruiayGR1MRJjakNPHjzCqKvLI1MZcIhZyZxD6kT5dV2mnc2BgwDHgcihar5PAMNzZ2RpLcH0gzSB5X7PWDX/xxh1QMUeFA0ZPKNL6kGpgGTQS1QAg9yIB0oX7cKyg+2RYganWfxmKODsnl0OpygPnPV6vi/S5vYyH9+JYKcojUMhQp4kDsMwQmma0fqCrEsMBlDPyLJMGmsjTxtJGuCgBoLzHJ6BunyCgLMl7UFwAAAOAZTkf9b+pkpvN8wTgNKCXKtFLk+Rpoa/FQ5FrQtEmz/pOeZUWa43owRZnV0hzdbQ2x+rjm1KZzlj3AGj132wpXJN8WBINZZLG+KUTwKz1UojQokAd8NOil+AUFcQVSeSGZtYEuzQ+zmj6UAJIkmGYFsmgqkZLtlCXht6trBG3R7qku9N/sTNdkxU083VmsTL7QyMAo4oOc+9xcEraqTDGocM0mbW+Lod6WrxF48A6o1gbJPNsRT5/0nTkKDvgRs6hAahkNOOQ7Wg3z15JpR/Ixmama4okAS2FT7uY0+mMzrASmGlVXYIEF5kZttMaN0KXlyAon3tavLjcPrpupi1JJV2HbQ23cJp2Tr7YByy5Hz5iPYKNWD8ss1qxRmwpvgRbXFm+1lZeXQdFHThERnBAsVc27qsacPSDIZURtbJ7LF/cGeOHW2IXsmzmvcf+WEFZaoreFcZ6sAUTLwtV5ficomcGbNHVlgq89r4agsS8BIV7cTfp7saWXG214fNt847P/uby9oVbX8kSX+2cvSzSg1+493msZsLJaq2w2EaslrLR1Ka/F/TEN1ZvO/Di+/Mu/fLc+CNHIhtqtzzRvLf9s107dp48bLtrfbJ66cq9e04fq297o638zLv7V48nak88SFZHLz/eMLZr+MS+ZOeiVIque3mD0DW8/amjB9+qGV79M+w+UfnpBXz3uK9r8POe+f2HHj1Hn+Q6+149v+/o3PC3Ox4YTSw8nf797lPcoaq1luZ50rmahlD4p++eXBGas//+NxeP/tX8ZXdg67lfK/DzqYhS/6NnWaTWsryx93DQH//k7Mb4avpA/Cj/7Evb/nx6Kzqbfu2Sf9b2r99ecv7iZl/HmQ+EZ17o2PPO7jtCdaOLTjU81DS3fukPH/+25aOVR4Jbxo8dP5uJvX7oYH4u/wGwUx188REAAA=='
 
 if not os.getenv('GEMINI_API_KEY'):
     os.environ['GEMINI_API_KEY'] = "AIzaSyAPIUPQ_gNZeqiLv7Q3oqPEQ98f4xU4GoY"
@@ -71,8 +71,8 @@ def analyze_coin():
             logger.info("📊 Step 1: Calling complete_ebay_analysis...")
             results = complete_ebay_analysis(
                 search_query=search_query,
-                max_results=8,  # Reduced for Render.com stability
-                min_confidence=60,  # Reduced for more results
+                max_results=6,  # Reduced for faster processing
+                min_confidence=30,  # Much lower threshold for more results
                 days_back=90
             )
             
@@ -173,8 +173,8 @@ def analyze_batch():
         # Run batch analysis
         batch_results = batch_ebay_analysis(
             search_queries=search_queries,
-            max_results=8,  # Reduced for Render.com stability
-            min_confidence=60,  # Reduced for more results
+            max_results=6,  # Reduced for faster processing
+            min_confidence=30,  # Much lower threshold for more results
             days_back=90
         )
         
