@@ -381,17 +381,21 @@ def search_completed_sales(keywords, max_results=10, days_back=30):
         'Content-Type': 'application/json'
     }
 
-    print(f"Searching sold items for '{keywords}'...")
-    print(f"Using endpoint: {EBAY_BROWSE_API_ENDPOINT}")
-    print("Note: This shows sold items, not necessarily completed transactions.")
+    logger.info(f"Searching sold items for '{keywords}'...")
+    logger.info(f"Using endpoint: {EBAY_BROWSE_API_ENDPOINT}")
+    logger.info(f"Token length: {len(EBAY_ACCESS_TOKEN) if EBAY_ACCESS_TOKEN else 0}")
+    logger.info("Note: This shows sold items, not necessarily completed transactions.")
     
     try:
         # Make the actual HTTP request to eBay Browse API with timeout:
+        logger.info(f"Making request to eBay API with params: {params}")
+        logger.info(f"Headers: {headers}")
         response = requests.get(EBAY_BROWSE_API_ENDPOINT, params=params, headers=headers, timeout=30)
-        print(f"Response status code: {response.status_code}")
+        logger.info(f"Response status code: {response.status_code}")
+        logger.info(f"Response headers: {dict(response.headers)}")
         
         if response.status_code != 200:
-            print(f"Response text: {response.text[:500]}...")  # Show first 500 chars of error
+            logger.error(f"Response text: {response.text[:1000]}...")  # Show first 1000 chars of error
             response.raise_for_status()
             
         data = response.json()
