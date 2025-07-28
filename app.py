@@ -186,9 +186,13 @@ if __name__ == '__main__':
     print("   - Google Gemini AI scoring active")
     print("   - All searches use real data")
     
-    print("\n🌐 Starting server...")
-    print("   - Local: http://localhost:5000")
-    print("   - API: http://localhost:5000/api/analyze")
-    print("   - Status: http://localhost:5000/api/status")
+    # Get port from environment variable (for Render.com) or default to 5000
+    port = int(os.environ.get('PORT', 5000))
     
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    print("\n🌐 Starting server...")
+    print(f"   - Port: {port}")
+    print(f"   - Local: http://localhost:{port}")
+    print(f"   - API: http://localhost:{port}/api/analyze")
+    print(f"   - Status: http://localhost:{port}/api/status")
+    
+    app.run(debug=False, host='0.0.0.0', port=port) 
